@@ -9,21 +9,19 @@
 
   :depends-on (#:iterate
                #:losh
+               #:temperance
+               #:hunchentoot
                #:cl-arrows
-               #:cl-ggp
-               #:cl-conspack
-               #:usocket)
+               #:cl-ggp)
 
   :serial t
-  :components ((:module "vendor"
-                :serial t
+  :components ((:module "vendor" :serial t
                 :components ((:file "quickutils-package")
                              (:file "quickutils")))
                (:file "package")
-               (:module "src"
-                :serial t
-                :components ((:module "brains"
-                              :serial nil
-                              :components ((:file "random")))
-                             (:file "player")))))
+               (:module "src" :serial t
+                :components ((:module "reasoners" :serial t
+                              :components ((:file "prolog")))
+                             (:module "players" :serial t
+                              :components ((:file "random")))))))
 

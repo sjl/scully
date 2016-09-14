@@ -4,8 +4,8 @@
   "quickutils.lisp"
   :utilities '(
 
-               :with-gensyms
                :once-only
+               :with-gensyms
 
                )
   :package "SCULLY.QUICKUTILS")
