@@ -23,5 +23,6 @@
                 :components ((:module "reasoners" :serial t
                               :components ((:file "prolog")))
                              (:module "players" :serial t
-                              :components ((:file "random")))))))
+                              :components ((:file "random")
+                                           (:file "random-ii")))))))
 

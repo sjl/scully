@@ -6,6 +6,10 @@
 
                :once-only
                :with-gensyms
+               :map-product
+               :curry
+               :rcurry
+               :set-equal
 
                )
   :package "SCULLY.QUICKUTILS")

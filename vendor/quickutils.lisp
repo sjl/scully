@@ -2,7 +2,7 @@
 ;;;; See http://quickutil.org for details.
 
 ;;;; To regenerate:
-;;;; (qtlc:save-utils-as "quickutils.lisp" :utilities '(:ONCE-ONLY :WITH-GENSYMS) :ensure-package T :package "SCULLY.QUICKUTILS")
+;;;; (qtlc:save-utils-as "quickutils.lisp" :utilities '(:ONCE-ONLY :WITH-GENSYMS :MAP-PRODUCT :CURRY :RCURRY :SET-EQUAL) :ensure-package T :package "SCULLY.QUICKUTILS")
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (unless (find-package "SCULLY.QUICKUTILS")
@@ -14,7 +14,9 @@
 
 (when (boundp '*utilities*)
   (setf *utilities* (union *utilities* '(:MAKE-GENSYM-LIST :ONCE-ONLY
-                                         :STRING-DESIGNATOR :WITH-GENSYMS))))
+                                         :STRING-DESIGNATOR :WITH-GENSYMS
+                                         :ENSURE-FUNCTION :CURRY :MAPPEND
+                                         :MAP-PRODUCT :RCURRY :SET-EQUAL))))
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun make-gensym-list (length &optional (x "G"))
     "Returns a list of `length` gensyms, each generated as if with a call to `make-gensym`,
@@ -107,6 +109,93 @@ unique symbol the named variable will be bound to."
     `(with-gensyms ,names ,@forms))
   
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (export '(once-only with-gensyms with-unique-names)))
+  ;;; To propagate return type and allow the compiler to eliminate the IF when
+  ;;; it is known if the argument is function or not.
+  (declaim (inline ensure-function))
+
+  (declaim (ftype (function (t) (values function &optional))
+                  ensure-function))
+  (defun ensure-function (function-designator)
+    "Returns the function designated by `function-designator`:
+if `function-designator` is a function, it is returned, otherwise
+it must be a function name and its `fdefinition` is returned."
+    (if (functionp function-designator)
+        function-designator
+        (fdefinition function-designator)))
+  )                                        ; eval-when
+
+  (defun curry (function &rest arguments)
+    "Returns a function that applies `arguments` and the arguments
+it is called with to `function`."
+    (declare (optimize (speed 3) (safety 1) (debug 1)))
+    (let ((fn (ensure-function function)))
+      (lambda (&rest more)
+        (declare (dynamic-extent more))
+        ;; Using M-V-C we don't need to append the arguments.
+        (multiple-value-call fn (values-list arguments) (values-list more)))))
+
+  (define-compiler-macro curry (function &rest arguments)
+    (let ((curries (make-gensym-list (length arguments) "CURRY"))
+          (fun (gensym "FUN")))
+      `(let ((,fun (ensure-function ,function))
+             ,@(mapcar #'list curries arguments))
+         (declare (optimize (speed 3) (safety 1) (debug 1)))
+         (lambda (&rest more)
+           (apply ,fun ,@curries more)))))
+  
+
+  (defun mappend (function &rest lists)
+    "Applies `function` to respective element(s) of each `list`, appending all the
+all the result list to a single list. `function` must return a list."
+    (loop for results in (apply #'mapcar function lists)
+          append results))
+  
+
+  (defun map-product (function list &rest more-lists)
+    "Returns a list containing the results of calling `function` with one argument
+from `list`, and one from each of `more-lists` for each combination of arguments.
+In other words, returns the product of `list` and `more-lists` using `function`.
+
+Example:
+
+    (map-product 'list '(1 2) '(3 4) '(5 6))
+     => ((1 3 5) (1 3 6) (1 4 5) (1 4 6)
+         (2 3 5) (2 3 6) (2 4 5) (2 4 6))"
+    (labels ((%map-product (f lists)
+               (let ((more (cdr lists))
+                     (one (car lists)))
+                 (if (not more)
+                     (mapcar f one)
+                     (mappend (lambda (x)
+                                (%map-product (curry f x) more))
+                              one)))))
+      (%map-product (ensure-function function) (cons list more-lists))))
+  
+
+  (defun rcurry (function &rest arguments)
+    "Returns a function that applies the arguments it is called
+with and `arguments` to `function`."
+    (declare (optimize (speed 3) (safety 1) (debug 1)))
+    (let ((fn (ensure-function function)))
+      (lambda (&rest more)
+        (declare (dynamic-extent more))
+        (multiple-value-call fn (values-list more) (values-list arguments)))))
+  
+
+  (defun set-equal (list1 list2 &key (test #'eql) (key nil keyp))
+    "Returns true if every element of `list1` matches some element of `list2` and
+every element of `list2` matches some element of `list1`. Otherwise returns false."
+    (let ((keylist1 (if keyp (mapcar key list1) list1))
+          (keylist2 (if keyp (mapcar key list2) list2)))
+      (and (dolist (elt keylist1 t)
+             (or (member elt keylist2 :test test)
+                 (return nil)))
+           (dolist (elt keylist2 t)
+             (or (member elt keylist1 :test test)
+                 (return nil))))))
+  
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (export '(once-only with-gensyms with-unique-names map-product curry rcurry
+            set-equal)))
 
 ;;;; END OF quickutils.lisp ;;;;

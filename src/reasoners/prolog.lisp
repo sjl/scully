@@ -6,6 +6,34 @@
 
 
 ;;;; Reasoner -----------------------------------------------------------------
+(defun clean-or (gdl)
+  (destructuring-bind (or . arguments)
+      gdl
+    (case (length arguments)
+      (1 (first arguments))
+      (2 gdl)
+      (t (list or (first arguments)
+               (clean-or (cons or (rest arguments))))))))
+
+(defun clean-and (gdl)
+  (destructuring-bind (and . arguments)
+      gdl
+    (case (length arguments)
+      (1 (first arguments))
+      (2 gdl)
+      (t (list and (first arguments)
+               (clean-and (cons and (rest arguments))))))))
+
+(defun clean-gdl (gdl)
+  (if (consp gdl)
+    (case (car gdl)
+      (ggp-rules::or (clean-or gdl))
+      (ggp-rules::and (clean-and gdl))
+      (t (cons (clean-gdl (car gdl))
+               (clean-gdl (cdr gdl)))))
+    gdl))
+
+
 (defun load-gdl-preamble (db)
   (push-logic-frame-with db
     (rule db (ggp-rules::not ?x) (call ?x) ! fail)
@@ -13,6 +41,8 @@
 
     (rule db (ggp-rules::or ?x ?y) (call ?x))
     (rule db (ggp-rules::or ?x ?y) (call ?y))
+
+    (rule db (ggp-rules::and ?x ?y) (call ?x) (call ?y))
 
     (rule db (ggp-rules::distinct ?x ?x) ! fail)
     (fact db (ggp-rules::distinct ?x ?y))))
@@ -121,11 +151,12 @@
                        (eq (car rule) 'ggp-rules::<=))
                 (apply #'invoke-rule db (cdr rule))
                 (invoke-fact db rule)))
-            rules))))
+            (clean-gdl rules)))))
 
 (defun initial-state (reasoner)
   (normalize-state
-    (query-map (pr-database reasoner) (lambda (r) (getf r '?what))
+    (query-map (pr-database reasoner)
+               (lambda (r) (getf r '?what))
                (ggp-rules::init ?what))))
 
 (defun terminalp (reasoner)
@@ -147,3 +178,16 @@
                       `(ggp-rules::legal ,role ?action))
     :test #'equal))
 
+(defun percepts-for (reasoner role state moves)
+  (ensure-state reasoner state)
+  (ensure-moves reasoner moves)
+  (remove-duplicates
+    (invoke-query-map (pr-database reasoner)
+                      (lambda (r) (getf r '?what))
+                      `(ggp-rules::sees ,role ?what))
+    :test #'equal))
+
+(defun roles (reasoner)
+  (query-map (pr-database reasoner)
+             (lambda (r) (getf r '?role))
+             (ggp-rules::role ?role)))

@@ -13,9 +13,23 @@
     #:initial-state
     #:terminalp
     #:next-state
-    #:legal-moves-for))
+    #:legal-moves-for
+    #:percepts-for
+    #:roles
+    ))
 
 (defpackage #:scully.players.random
+  (:use
+    #:cl
+    #:losh
+    #:iterate
+    #:cl-arrows
+    #:scully.quickutils
+    #:scully.reasoners.prolog)
+  (:export
+    ))
+
+(defpackage #:scully.players.random-ii
   (:use
     #:cl
     #:losh
