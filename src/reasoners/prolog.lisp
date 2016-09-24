@@ -6,34 +6,6 @@
 
 
 ;;;; Reasoner -----------------------------------------------------------------
-(defun clean-or (gdl)
-  (destructuring-bind (or . arguments)
-      gdl
-    (case (length arguments)
-      (1 (first arguments))
-      (2 gdl)
-      (t (list or (first arguments)
-               (clean-or (cons or (rest arguments))))))))
-
-(defun clean-and (gdl)
-  (destructuring-bind (and . arguments)
-      gdl
-    (case (length arguments)
-      (1 (first arguments))
-      (2 gdl)
-      (t (list and (first arguments)
-               (clean-and (cons and (rest arguments))))))))
-
-(defun clean-gdl (gdl)
-  (if (consp gdl)
-    (case (car gdl)
-      (ggp-rules::or (clean-or gdl))
-      (ggp-rules::and (clean-and gdl))
-      (t (cons (clean-gdl (car gdl))
-               (clean-gdl (cdr gdl)))))
-    gdl))
-
-
 (defun load-gdl-preamble (db)
   (push-logic-frame-with db
     (rule db (ggp-rules::not ?x) (call ?x) ! fail)
@@ -60,6 +32,40 @@
 
 (defun make-prolog-reasoner ()
   (make-instance 'prolog-reasoner))
+
+
+;;;; GDL Cleaning -------------------------------------------------------------
+;;; Some GDL authors use (or x y) and (and x y) in their game descriptions, even
+;;; though it's not part of the GDL "spec".  Worse still, some use n-ary
+;;; versions of those predicates, because fuck you.  So we'll do a quick pass
+;;; over the GDL to clean up these bugs.
+
+(defun clean-or (gdl)
+  (destructuring-bind (or . arguments)
+      gdl
+    (case (length arguments)
+      (1 (first arguments))
+      (2 gdl)
+      (t (list or (first arguments)
+               (clean-or (cons or (rest arguments))))))))
+
+(defun clean-and (gdl)
+  (destructuring-bind (and . arguments)
+      gdl
+    (case (length arguments)
+      (1 (first arguments))
+      (2 gdl)
+      (t (list and (first arguments)
+               (clean-and (cons and (rest arguments))))))))
+
+(defun clean-gdl (gdl)
+  (if (consp gdl)
+    (case (car gdl)
+      (ggp-rules::or (clean-or gdl))
+      (ggp-rules::and (clean-and gdl))
+      (t (cons (clean-gdl (car gdl))
+               (clean-gdl (cdr gdl)))))
+    gdl))
 
 
 ;;;; State Normalization ------------------------------------------------------

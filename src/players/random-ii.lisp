@@ -44,9 +44,6 @@
 
 
 (defmethod ggp:player-start-game ((player random-ii-player) rules role timeout)
-  (format t "Game Started~%")
-  (loop :repeat 300 :do (princ #\=))
-  (terpri)
   (let ((reasoner (make-prolog-reasoner)))
     (load-rules reasoner rules)
     (setf (rp-role player) role
