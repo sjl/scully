@@ -43,6 +43,17 @@
   (:export
     ))
 
+(defpackage #:scully.grounders.fluxplayer
+  (:use
+    #:cl
+    #:losh
+    #:iterate
+    #:cl-arrows
+    #:smug
+    #:scully.quickutils)
+  (:export
+    ))
+
 (defpackage #:scully.players.random
   (:use
     #:cl

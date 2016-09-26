@@ -12,6 +12,7 @@
                #:temperance
                #:hunchentoot
                #:trivia
+               #:smug
                #:cl-arrows
                #:cl-ggp)
 
@@ -25,7 +26,8 @@
                              (:module "reasoners" :serial t
                               :components ((:file "prolog")))
                              (:module "grounders" :serial t
-                              :components ((:file "prolog")))
+                              :components ((:file "prolog")
+                                           (:file "fluxplayer")))
                              (:module "players" :serial t
                               :components ((:file "random")
                                            (:file "random-ii")))))))
