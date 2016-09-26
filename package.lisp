@@ -1,3 +1,16 @@
+(defpackage #:scully.gdl
+  (:use
+    #:cl
+    #:losh
+    #:iterate
+    #:cl-arrows
+    #:temperance
+    #:scully.quickutils)
+  (:export
+    #:read-gdl
+    #:load-rules
+    ))
+
 (defpackage #:scully.reasoners.prolog
   (:use
     #:cl
@@ -16,6 +29,18 @@
     #:legal-moves-for
     #:percepts-for
     #:roles
+    ))
+
+(defpackage #:scully.grounders.prolog
+  (:use
+    #:cl
+    #:losh
+    #:iterate
+    #:trivia
+    #:cl-arrows
+    #:temperance
+    #:scully.quickutils)
+  (:export
     ))
 
 (defpackage #:scully.players.random

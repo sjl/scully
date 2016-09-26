@@ -150,14 +150,8 @@
 
 ;;;; API ----------------------------------------------------------------------
 (defun load-rules (reasoner rules)
-  (let ((db (pr-database reasoner)))
-    (push-logic-frame-with db
-      (mapc (lambda (rule)
-              (if (and (consp rule)
-                       (eq (car rule) 'ggp-rules::<=))
-                (apply #'invoke-rule db (cdr rule))
-                (invoke-fact db rule)))
-            (clean-gdl rules)))))
+  (scully.gdl:load-rules (pr-database reasoner)
+                         (clean-gdl rules)))
 
 (defun initial-state (reasoner)
   (normalize-state

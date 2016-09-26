@@ -11,6 +11,7 @@
                #:losh
                #:temperance
                #:hunchentoot
+               #:trivia
                #:cl-arrows
                #:cl-ggp)
 
@@ -20,7 +21,10 @@
                              (:file "quickutils")))
                (:file "package")
                (:module "src" :serial t
-                :components ((:module "reasoners" :serial t
+                :components ((:file "gdl")
+                             (:module "reasoners" :serial t
+                              :components ((:file "prolog")))
+                             (:module "grounders" :serial t
                               :components ((:file "prolog")))
                              (:module "players" :serial t
                               :components ((:file "random")
