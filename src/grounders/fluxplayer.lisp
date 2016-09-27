@@ -23,6 +23,7 @@
   (.let* ((digits (.first (.map 'string (.digit radix)))))
     (.identity (parse-integer digits :radix radix))))
 
+
 (defun .eof ()
   (.or (.not (.item))
        (.fail)))
@@ -53,11 +54,16 @@
       (.identity (cons el rest)))))
 
 
+(defun read-gdl-term (string)
+  (let ((*package* (find-package :ggp-rules)))
+    (read-from-string string)))
+
 (defun .index-line ()
   (.let* ((id (.positive-integer))
           (_ (.whitespace))
           (term (.line)))
-    (.identity (make-index-entry :id id :term (read-from-string term)))))
+    (.identity (make-index-entry :id id
+                                 :term (read-gdl-term term)))))
 
 (defun .rule-line ()
   (.let* ((_ (.positive-integer)) ; type, not used here
@@ -83,13 +89,30 @@
   (.let* ((rules (.first (.map 'list (.rule-line))))
           (_ (.delimiter-line))
           (index (.first (.map 'list (.index-line))))
-          (_ (.delimiter-line))
-          )
-    (.identity (list :rules rules :index index))))
+          (_ (.delimiter-line)))
+    (.identity (list rules index))))
 
 
 (defun parse-raw-grounded (raw)
   (values (parse (.grounded-gdl) raw)))
+
+
+;;;; Rebuilding ---------------------------------------------------------------
+(defun rebuild-rules (rule-entries index-entries)
+  (let ((index (make-hash-table)))
+    (iterate (for entry :in index-entries)
+             (setf (gethash (index-entry-id entry) index)
+                   (index-entry-term entry)))
+    (flet ((get-rule (id)
+             (ensure-gethash id index (gensym))))
+      (iterate
+        (for entry :in rule-entries)
+        (for rule = (get-rule (rule-id entry)))
+        (for pos = (mapcar #'get-rule (rule-positive entry)))
+        (for neg = (mapcar #'get-rule (rule-negative entry)))
+        (collect (if (or pos neg)
+                   `(ggp-rules::<= ,rule ,@pos ,@neg)
+                   (ensure-list rule)))))))
 
 
 ;;;; API ----------------------------------------------------------------------
@@ -100,7 +123,11 @@
     :output :string))
 
 (defun ground-gdl (filename)
-  (parse-raw-grounded (ground-raw filename)))
+  (->> filename
+    ground-raw
+    parse-raw-grounded
+    (apply #'rebuild-rules)))
 
 
 ; (ground-gdl "gdl/buttons.gdl")
+; (ground-gdl "gdl/tictactoe.gdl")

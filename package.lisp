@@ -36,7 +36,7 @@
     #:cl
     #:losh
     #:iterate
-    #:trivia
+    #:optima
     #:cl-arrows
     #:temperance
     #:scully.quickutils)

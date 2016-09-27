@@ -11,7 +11,7 @@
                #:losh
                #:temperance
                #:hunchentoot
-               #:trivia
+               #:optima
                #:smug
                #:cl-arrows
                #:cl-ggp)
