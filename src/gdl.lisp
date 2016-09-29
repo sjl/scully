@@ -17,3 +17,7 @@
               (apply #'invoke-rule database (cdr rule))
               (invoke-fact database rule)))
           rules)))
+
+(defun redump-gdl (rules)
+  (let ((*package* (find-package :ggp-rules)))
+    (format nil "~(~{~S~%~}~)" rules)))

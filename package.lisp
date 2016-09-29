@@ -9,7 +9,7 @@
   (:export
     #:read-gdl
     #:load-rules
-    ))
+    #:redump-gdl))
 
 (defpackage #:scully.reasoners.prolog
   (:use
@@ -52,7 +52,8 @@
     #:smug
     #:scully.quickutils)
   (:export
-    ))
+    #:ground-gdl-file
+    #:ground-gdl-string))
 
 (defpackage #:scully.players.random
   (:use

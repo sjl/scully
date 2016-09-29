@@ -115,19 +115,26 @@
                    (ensure-list rule)))))))
 
 
-;;;; API ----------------------------------------------------------------------
-(defun ground-raw (filename)
+;;;; Fluxplayer ---------------------------------------------------------------
+(defun ground-with-fluxplayer (string filename)
   (uiop/run-program:run-program
     `("/Users/sjl/src/fluxplayer/trunk/src/groundgdl.sh" ,filename "-")
     :force-shell nil
+    :input (make-string-input-stream string)
     :output :string))
 
-(defun ground-gdl (filename)
-  (->> filename
-    ground-raw
+
+;;;; API ----------------------------------------------------------------------
+(defun ground-gdl-string (string)
+  (->> (ground-with-fluxplayer string "-")
+    parse-raw-grounded
+    (apply #'rebuild-rules)))
+
+(defun ground-gdl-file (filename)
+  (->> (ground-with-fluxplayer "" filename)
     parse-raw-grounded
     (apply #'rebuild-rules)))
 
 
 ; (ground-gdl "gdl/buttons.gdl")
-; (ground-gdl "gdl/tictactoe.gdl")
+; (ground-gdl-file "gdl/tictactoe.gdl")
