@@ -111,7 +111,9 @@
         (for pos = (mapcar #'get-rule (rule-positive entry)))
         (for neg = (mapcar #'get-rule (rule-negative entry)))
         (collect (if (or pos neg)
-                   `(ggp-rules::<= ,rule ,@pos ,@neg)
+                   `(ggp-rules::<= ,rule
+                     ,@pos
+                     ,@(mapcar (curry #'list 'ggp-rules::not) neg))
                    (ensure-list rule)))))))
 
 
@@ -136,5 +138,17 @@
     (apply #'rebuild-rules)))
 
 
-; (ground-gdl "gdl/buttons.gdl")
-; (ground-gdl-file "gdl/tictactoe.gdl")
+(defun dump-grounded (filename)
+  (with-output-to-file (*standard-output*
+                         (mkstr "gdl/" filename "-grounded.gdl")
+                         :if-exists :supersede)
+    (let ((*package* (find-package :ggp-rules)))
+      (map nil #'print (ground-gdl-file (mkstr "gdl/" filename ".gdl"))))))
+
+
+; (dump-grounded "buttons")
+; (dump-grounded "8puzzle")
+; (dump-grounded "tictactoe")
+; (dump-grounded "roshambo2")
+
+

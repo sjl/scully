@@ -8,10 +8,12 @@
                :ensure-gethash
                :ensure-list
                :map-product
+               :mkstr
                :once-only
                :rcurry
                :set-equal
                :with-gensyms
+               :with-output-to-file
 
                )
   :package "SCULLY.QUICKUTILS")

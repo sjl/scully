@@ -2,7 +2,7 @@
 ;;;; See http://quickutil.org for details.
 
 ;;;; To regenerate:
-;;;; (qtlc:save-utils-as "quickutils.lisp" :utilities '(:CURRY :ENSURE-GETHASH :ENSURE-LIST :MAP-PRODUCT :ONCE-ONLY :RCURRY :SET-EQUAL :WITH-GENSYMS) :ensure-package T :package "SCULLY.QUICKUTILS")
+;;;; (qtlc:save-utils-as "quickutils.lisp" :utilities '(:CURRY :ENSURE-GETHASH :ENSURE-LIST :MAP-PRODUCT :MKSTR :ONCE-ONLY :RCURRY :SET-EQUAL :WITH-GENSYMS :WITH-OUTPUT-TO-FILE) :ensure-package T :package "SCULLY.QUICKUTILS")
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (unless (find-package "SCULLY.QUICKUTILS")
@@ -15,9 +15,10 @@
 (when (boundp '*utilities*)
   (setf *utilities* (union *utilities* '(:MAKE-GENSYM-LIST :ENSURE-FUNCTION
                                          :CURRY :ENSURE-GETHASH :ENSURE-LIST
-                                         :MAPPEND :MAP-PRODUCT :ONCE-ONLY
-                                         :RCURRY :SET-EQUAL :STRING-DESIGNATOR
-                                         :WITH-GENSYMS))))
+                                         :MAPPEND :MAP-PRODUCT :MKSTR
+                                         :ONCE-ONLY :RCURRY :SET-EQUAL
+                                         :STRING-DESIGNATOR :WITH-GENSYMS
+                                         :WITH-OPEN-FILE* :WITH-OUTPUT-TO-FILE))))
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun make-gensym-list (length &optional (x "G"))
     "Returns a list of `length` gensyms, each generated as if with a call to `make-gensym`,
@@ -105,6 +106,14 @@ Example:
                                 (%map-product (curry f x) more))
                               one)))))
       (%map-product (ensure-function function) (cons list more-lists))))
+  
+
+  (defun mkstr (&rest args)
+    "Receives any number of objects (string, symbol, keyword, char, number), extracts all printed representations, and concatenates them all into one string.
+
+Extracted from _On Lisp_, chapter 4."
+    (with-output-to-string (s)
+      (dolist (a args) (princ a s))))
   
 
   (defmacro once-only (specs &body forms)
@@ -212,8 +221,44 @@ The string-designator is used as the argument to `gensym` when constructing the
 unique symbol the named variable will be bound to."
     `(with-gensyms ,names ,@forms))
   
+
+  (defmacro with-open-file* ((stream filespec &key direction element-type
+                                                   if-exists if-does-not-exist external-format)
+                             &body body)
+    "Just like `with-open-file`, but `nil` values in the keyword arguments mean to use
+the default value specified for `open`."
+    (once-only (direction element-type if-exists if-does-not-exist external-format)
+      `(with-open-stream
+           (,stream (apply #'open ,filespec
+                           (append
+                            (when ,direction
+                              (list :direction ,direction))
+                            (when ,element-type
+                              (list :element-type ,element-type))
+                            (when ,if-exists
+                              (list :if-exists ,if-exists))
+                            (when ,if-does-not-exist
+                              (list :if-does-not-exist ,if-does-not-exist))
+                            (when ,external-format
+                              (list :external-format ,external-format)))))
+         ,@body)))
+  
+
+  (defmacro with-output-to-file ((stream-name file-name &rest args
+                                                        &key (direction nil direction-p)
+                                                        &allow-other-keys)
+                                 &body body)
+    "Evaluate `body` with `stream-name` to an output stream on the file
+`file-name`. `args` is sent as is to the call to `open` except `external-format`,
+which is only sent to `with-open-file` when it's not `nil`."
+    (declare (ignore direction))
+    (when direction-p
+      (error "Can't specifiy :DIRECTION for WITH-OUTPUT-TO-FILE."))
+    `(with-open-file* (,stream-name ,file-name :direction :output ,@args)
+       ,@body))
+  
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (export '(curry ensure-gethash ensure-list map-product once-only rcurry
-            set-equal with-gensyms with-unique-names)))
+  (export '(curry ensure-gethash ensure-list map-product mkstr once-only rcurry
+            set-equal with-gensyms with-unique-names with-output-to-file)))
 
 ;;;; END OF quickutils.lisp ;;;;
