@@ -2,7 +2,7 @@
 
 
 (adt:defdata rule-tree
-  (node t rule-tree rule-tree list)
+  (node t rule-tree rule-tree)
   (leaf list))
 
 
@@ -83,22 +83,24 @@
 
 
 (defun make-rule-tree (rules)
-  (recursively ((rules (mapcar #'sort-body rules)))
+  (recursively ((rules (mapcar #'sort-body rules))
+                (accumulated-heads nil))
     (let* ((heads (-<> rules
                     (remove-if-not #'rule-empty-p <>)
                     (mapcar #'rule-head <>)
-                    (remove-duplicates <> :test #'equal)))
-           (next-rules (remove-if (lambda (rule)
-                                    (member (rule-head rule) heads :test #'equal))
-                                  rules)))
+                    (remove-duplicates <> :test #'equal)
+                    (union accumulated-heads <> :test #'equal))) ; slow
+           (next-rules (remove-if
+                         (lambda (rule)
+                           (member (rule-head rule) heads :test #'equal))
+                         rules)))
       (if (null next-rules)
         (leaf heads)
         (multiple-value-bind (term low high both)
             (partition-rules next-rules)
           (node term
-                (recur (append (mapcar #'drop-first low) both))
-                (recur (append (mapcar #'drop-first high) both))
-                heads))))))
+                (recur (append (mapcar #'drop-first low) both) heads)
+                (recur (append (mapcar #'drop-first high) both) heads)))))))
 
 
 ;;;; GraphViz
@@ -114,20 +116,17 @@
   (make-instance 'cl-dot:node
                  :attributes (adt:match rule-tree object
                                ((leaf heads)
-                                `(:label ,(format nil "+~S" heads)
+                                `(:label ,(structural-string heads)
                                   :shape :ellipse))
-                               ((node term _ _ heads)
-                                `(:label ,(format nil "~S~A" term
-                                                  (if heads
-                                                    (format nil "~%+~S" heads)
-                                                    ""))
+                               ((node term _ _)
+                                `(:label ,(structural-string term)
                                   :shape :box)))))
 
 (defmethod cl-dot:graph-object-points-to ((graph (eql 'rule-tree))
                                           (object rule-tree))
   (adt:match rule-tree object
     ((leaf _) nil)
-    ((node _ low high _)
+    ((node _ low high)
      (list (attrs high :style :solid)
            (attrs low :style :dashed)))))
 
@@ -149,7 +148,7 @@
 (defparameter *rules* '(
                         (x (not b) a)
                         (x a c)
-                        (y (true dogs))
+                        (y c)
                         (z d b)
                         (z (not c) d)
                         ))
