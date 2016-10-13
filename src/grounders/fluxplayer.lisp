@@ -150,5 +150,6 @@
 ; (dump-grounded "8puzzle")
 ; (dump-grounded "tictactoe")
 ; (dump-grounded "roshambo2")
+; (dump-grounded "hanoi")
 
 

@@ -1,0 +1,35 @@
+(role p)
+
+(legal p 1)
+(legal p 2)
+(legal p 3)
+(legal p 4)
+(legal p 5)
+
+(succ 1 2)
+(succ 2 3)
+(succ 3 4)
+(succ 4 5)
+
+(<= (smaller ?x ?y)
+  (succ ?x ?y))
+
+(<= (smaller ?x ?y)
+  (succ ?x ?sx)
+  (smaller ?sx ?y))
+
+(<= (next done))
+
+(<= (next (picked ?n))
+  (does p ?n))
+
+(<= (goal p 100)
+  (true (picked ?n))
+  (smaller ?n 3))
+
+(<= (goal p 0)
+  (true (picked ?n))
+  (not (smaller ?n 3)))
+
+(<= terminal
+  (true (picked ?anything)))
