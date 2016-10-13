@@ -2,3 +2,4 @@ syntax: glob
 
 scratch.lisp
 *-grounded.gdl
+tree.png
