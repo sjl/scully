@@ -2,7 +2,7 @@
 ;;;; See http://quickutil.org for details.
 
 ;;;; To regenerate:
-;;;; (qtlc:save-utils-as "quickutils.lisp" :utilities '(:CURRY :ENSURE-GETHASH :ENSURE-LIST :MAP-PRODUCT :MKSTR :ONCE-ONLY :RCURRY :SET-EQUAL :WITH-GENSYMS :WITH-OUTPUT-TO-FILE) :ensure-package T :package "SCULLY.QUICKUTILS")
+;;;; (qtlc:save-utils-as "quickutils.lisp" :utilities '(:COMPOSE :CURRY :ENSURE-BOOLEAN :ENSURE-GETHASH :ENSURE-LIST :MAP-PRODUCT :MKSTR :ONCE-ONLY :RCURRY :SET-EQUAL :WITH-GENSYMS :WITH-OUTPUT-TO-FILE) :ensure-package T :package "SCULLY.QUICKUTILS")
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (unless (find-package "SCULLY.QUICKUTILS")
@@ -14,11 +14,12 @@
 
 (when (boundp '*utilities*)
   (setf *utilities* (union *utilities* '(:MAKE-GENSYM-LIST :ENSURE-FUNCTION
-                                         :CURRY :ENSURE-GETHASH :ENSURE-LIST
-                                         :MAPPEND :MAP-PRODUCT :MKSTR
-                                         :ONCE-ONLY :RCURRY :SET-EQUAL
-                                         :STRING-DESIGNATOR :WITH-GENSYMS
-                                         :WITH-OPEN-FILE* :WITH-OUTPUT-TO-FILE))))
+                                         :COMPOSE :CURRY :ENSURE-BOOLEAN
+                                         :ENSURE-GETHASH :ENSURE-LIST :MAPPEND
+                                         :MAP-PRODUCT :MKSTR :ONCE-ONLY :RCURRY
+                                         :SET-EQUAL :STRING-DESIGNATOR
+                                         :WITH-GENSYMS :WITH-OPEN-FILE*
+                                         :WITH-OUTPUT-TO-FILE))))
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun make-gensym-list (length &optional (x "G"))
     "Returns a list of `length` gensyms, each generated as if with a call to `make-gensym`,
@@ -43,6 +44,35 @@ it must be a function name and its `fdefinition` is returned."
         (fdefinition function-designator)))
   )                                        ; eval-when
 
+  (defun compose (function &rest more-functions)
+    "Returns a function composed of `function` and `more-functions` that applies its ;
+arguments to to each in turn, starting from the rightmost of `more-functions`,
+and then calling the next one with the primary value of the last."
+    (declare (optimize (speed 3) (safety 1) (debug 1)))
+    (reduce (lambda (f g)
+              (let ((f (ensure-function f))
+                    (g (ensure-function g)))
+                (lambda (&rest arguments)
+                  (declare (dynamic-extent arguments))
+                  (funcall f (apply g arguments)))))
+            more-functions
+            :initial-value function))
+
+  (define-compiler-macro compose (function &rest more-functions)
+    (labels ((compose-1 (funs)
+               (if (cdr funs)
+                   `(funcall ,(car funs) ,(compose-1 (cdr funs)))
+                   `(apply ,(car funs) arguments))))
+      (let* ((args (cons function more-functions))
+             (funs (make-gensym-list (length args) "COMPOSE")))
+        `(let ,(loop for f in funs for arg in args
+                     collect `(,f (ensure-function ,arg)))
+           (declare (optimize (speed 3) (safety 1) (debug 1)))
+           (lambda (&rest arguments)
+             (declare (dynamic-extent arguments))
+             ,(compose-1 funs))))))
+  
+
   (defun curry (function &rest arguments)
     "Returns a function that applies `arguments` and the arguments
 it is called with to `function`."
@@ -61,6 +91,11 @@ it is called with to `function`."
          (declare (optimize (speed 3) (safety 1) (debug 1)))
          (lambda (&rest more)
            (apply ,fun ,@curries more)))))
+  
+
+  (defun ensure-boolean (x)
+    "Convert `x` into a Boolean value."
+    (and x t))
   
 
   (defmacro ensure-gethash (key hash-table &optional default)
@@ -258,7 +293,8 @@ which is only sent to `with-open-file` when it's not `nil`."
        ,@body))
   
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (export '(curry ensure-gethash ensure-list map-product mkstr once-only rcurry
-            set-equal with-gensyms with-unique-names with-output-to-file)))
+  (export '(compose curry ensure-boolean ensure-gethash ensure-list map-product
+            mkstr once-only rcurry set-equal with-gensyms with-unique-names
+            with-output-to-file)))
 
 ;;;; END OF quickutils.lisp ;;;;

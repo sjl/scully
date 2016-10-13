@@ -13,6 +13,8 @@
                #:hunchentoot
                #:optima
                #:smug
+               #:cl-dot
+               #:cl-algebraic-data-type
                #:cl-arrows
                #:cl-ggp)
 
@@ -23,6 +25,7 @@
                (:file "package")
                (:module "src" :serial t
                 :components ((:file "gdl")
+                             (:file "rule-trees")
                              (:module "reasoners" :serial t
                               :components ((:file "prolog")))
                              (:module "grounders" :serial t

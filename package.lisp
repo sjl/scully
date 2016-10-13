@@ -11,6 +11,15 @@
     #:load-rules
     #:redump-gdl))
 
+(defpackage #:scully.rule-trees
+  (:use
+    #:cl
+    #:losh
+    #:iterate
+    #:cl-arrows
+    #:scully.quickutils)
+  (:export))
+
 (defpackage #:scully.reasoners.prolog
   (:use
     #:cl
