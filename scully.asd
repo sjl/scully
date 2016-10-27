@@ -26,6 +26,7 @@
                (:module "src" :serial t
                 :components ((:file "gdl")
                              (:file "rule-trees")
+                             (:file "zdd")
                              (:module "reasoners" :serial t
                               :components ((:file "prolog")))
                              (:module "grounders" :serial t

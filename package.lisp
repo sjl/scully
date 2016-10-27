@@ -20,6 +20,15 @@
     #:scully.quickutils)
   (:export))
 
+(defpackage #:scully.zdd
+  (:use
+    #:cl
+    #:losh
+    #:iterate
+    #:cl-arrows
+    #:scully.quickutils)
+  (:export))
+
 (defpackage #:scully.reasoners.prolog
   (:use
     #:cl
