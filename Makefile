@@ -18,7 +18,10 @@ build/libcudd.dylib: build/cudd-3.0.0
 	cd build/cudd-3.0.0 && ./configure --enable-shared && make
 	cp build/cudd-3.0.0/cudd/.libs/libcudd-*.dylib build/libcudd.dylib
 
-cudd: build/libcudd.dylib
+src/cudd.lisp: build/cudd-3.0.0 src/cudd.i
+	swig -cffi src/cudd.i
+
+cudd: build/libcudd.dylib src/cudd.lisp
 
 # Misc ------------------------------------------------------------------------
 clean:

@@ -1,9 +1,10 @@
 (in-package :scully.zdd)
 
-;;;; Library ------------------------------------------------------------------
-(define-foreign-library cudd
-  (:darwin "./build/libcudd.dylib"))
 
-(use-foreign-library cudd)
-
+(defparameter *cudd-manager*
+  (scully.cudd:cudd-init 0
+                         0
+                         scully.cudd:+cudd-unique-slots+
+                         scully.cudd:+cudd-cache-slots+
+                         0))
 
