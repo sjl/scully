@@ -26,6 +26,7 @@
     :losh
     :iterate
     :cl-arrows
+    :cffi
     :scully.quickutils)
   (:export))
 

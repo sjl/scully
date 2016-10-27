@@ -16,7 +16,8 @@
                :cl-dot
                :cl-algebraic-data-type
                :cl-arrows
-               :cl-ggp)
+               :cl-ggp
+               :cffi)
 
   :serial t
   :components ((:module "vendor" :serial t
