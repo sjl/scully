@@ -1,4 +1,4 @@
-(in-package #:scully.players.random)
+(in-package :scully.players.random)
 
 
 ;;;; Random Player ------------------------------------------------------------

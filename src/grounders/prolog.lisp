@@ -1,4 +1,4 @@
-(in-package #:scully.grounders.prolog)
+(in-package :scully.grounders.prolog)
 
 
 ;;;; Utils

@@ -1,4 +1,4 @@
-(in-package #:scully.gdl)
+(in-package :scully.gdl)
 
 (defun read-gdl (filename)
   (let ((*package* (find-package :ggp-rules)))

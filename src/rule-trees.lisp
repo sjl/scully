@@ -1,4 +1,4 @@
-(in-package #:scully.rule-trees)
+(in-package :scully.rule-trees)
 
 
 (adt:defdata rule-tree

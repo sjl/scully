@@ -2,7 +2,7 @@
   (unless (find-package "SCULLY.QUICKUTILS")
     (defpackage "SCULLY.QUICKUTILS"
       (:documentation "Package that contains Quickutil utility functions.")
-      (:use #:cl))))
+      (:use :cl))))
 
 (in-package "SCULLY.QUICKUTILS")
 

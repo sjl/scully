@@ -1,1 +1,1 @@
-(in-package #:scully.zdd)
+(in-package :scully.zdd)

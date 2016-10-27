@@ -1,4 +1,4 @@
-(in-package #:scully.reasoners.prolog)
+(in-package :scully.reasoners.prolog)
 
 
 ;;;; Brute-Force Prolog Reasoner

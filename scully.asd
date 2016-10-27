@@ -1,4 +1,4 @@
-(asdf:defsystem #:scully
+(asdf:defsystem :scully
   :name "scully"
   :description "A General Game Player for incomplete-information games"
 
@@ -7,16 +7,16 @@
   :license "MIT/X11"
   :version "1.0.0"
 
-  :depends-on (#:iterate
-               #:losh
-               #:temperance
-               #:hunchentoot
-               #:optima
-               #:smug
-               #:cl-dot
-               #:cl-algebraic-data-type
-               #:cl-arrows
-               #:cl-ggp)
+  :depends-on (:iterate
+               :losh
+               :temperance
+               :hunchentoot
+               :optima
+               :smug
+               :cl-dot
+               :cl-algebraic-data-type
+               :cl-arrows
+               :cl-ggp)
 
   :serial t
   :components ((:module "vendor" :serial t
