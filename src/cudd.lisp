@@ -5,10 +5,6 @@
 ;;; the SWIG interface file instead.
 
 
-(cl:when (cl:not (cl:find-package :scully.cudd))
-  (cl:defpackage :scully.cudd))
-
-(cl:defpackage :scully.cudd)
 (cl:in-package :scully.cudd)
 
 (cffi:define-foreign-library scully.zdd::cudd

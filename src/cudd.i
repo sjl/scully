@@ -5,7 +5,6 @@
 
 %insert("lisphead")%{
 
-(cl:defpackage :scully.cudd)
 (cl:in-package :scully.cudd)
 
 (cffi:define-foreign-library scully.zdd::cudd

@@ -20,6 +20,8 @@
     :scully.quickutils)
   (:export))
 
+(defpackage :scully.cudd)
+
 (defpackage :scully.zdd
   (:use
     :cl
@@ -27,8 +29,12 @@
     :iterate
     :cl-arrows
     :cffi
+    ; :scully.cudd
+    :trivialib.bdd
     :scully.quickutils)
-  (:export))
+  (:export)
+  (:shadowing-import-from :trivialib.bdd :make-set)
+  )
 
 (defpackage :scully.reasoners.prolog
   (:use
