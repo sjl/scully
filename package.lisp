@@ -20,13 +20,13 @@
     :scully.quickutils)
   (:export))
 
-
 (defpackage :scully.zdd
   (:use
     :cl
     :losh
     :iterate
     :cl-arrows
+    :trivia
     :trivialib.bdd
     :scully.quickutils)
   (:export)
