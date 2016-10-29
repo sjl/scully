@@ -17,8 +17,7 @@
                :cl-algebraic-data-type
                :cl-arrows
                :cl-ggp
-               :trivialib.bdd
-               :cffi)
+               :trivialib.bdd)
 
   :serial t
   :components ((:module "vendor" :serial t
@@ -28,7 +27,6 @@
                (:module "src" :serial t
                 :components ((:file "gdl")
                              (:file "rule-trees")
-                             (:file "cudd")
                              (:file "zdd")
                              (:module "reasoners" :serial t
                               :components ((:file "prolog")))
