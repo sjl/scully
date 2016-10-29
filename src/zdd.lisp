@@ -72,9 +72,9 @@
   (make-set elements))
 
 
-(defun zdd-union (a b)
+(defun zdd-union% (a b)
   (ematch* (a b)
-    (((node) (leaf)) (zdd-union b a))
+    (((node) (leaf)) (zdd-union% b a))
 
     (((leaf nil) b) b)
     (((leaf t) b) (unit-patch b))
@@ -82,30 +82,39 @@
     (((node var-a hi-a lo-a)
       (node var-b hi-b lo-b))
      (cond
-       ((< var-a var-b) (zdd-node var-a hi-a (zdd-union lo-a b)))
-       ((> var-a var-b) (zdd-node var-b hi-b (zdd-union lo-b a)))
+       ((< var-a var-b) (zdd-node var-a hi-a (zdd-union% lo-a b)))
+       ((> var-a var-b) (zdd-node var-b hi-b (zdd-union% lo-b a)))
        ((= var-a var-b) (zdd-node var-a
-                                  (zdd-union hi-a hi-b)
-                                  (zdd-union lo-a lo-b)))))))
+                                  (zdd-union% hi-a hi-b)
+                                  (zdd-union% lo-a lo-b)))))))
+(defun zdd-union (&rest zdds)
+  (if zdds
+    (reduce #'zdd-union% zdds)
+    (leaf nil)))
 
-(defun zdd-intersection (a b)
+(defun zdd-intersection% (a b)
   (ematch* (a b)
-    (((node) (leaf)) (zdd-intersection b a))
+    (((node) (leaf)) (zdd-intersection% b a))
 
     (((leaf nil) _) (leaf nil))
     ((_ (leaf nil)) (leaf nil))
 
     (((leaf t) (leaf _)) b)
-    (((leaf t) (node _ _ lo)) (zdd-intersection a lo))
+    (((leaf t) (node _ _ lo)) (zdd-intersection% a lo))
 
     (((node var-a hi-a lo-a)
       (node var-b hi-b lo-b))
      (cond
-       ((< var-a var-b) (zdd-intersection lo-a b))
-       ((> var-a var-b) (zdd-intersection lo-b a))
+       ((< var-a var-b) (zdd-intersection% lo-a b))
+       ((> var-a var-b) (zdd-intersection% lo-b a))
        ((= var-a var-b) (zdd-node var-a
-                                  (zdd-intersection hi-a hi-b)
-                                  (zdd-intersection lo-a lo-b)))))))
+                                  (zdd-intersection% hi-a hi-b)
+                                  (zdd-intersection% lo-a lo-b)))))))
+
+(defun zdd-intersection (&rest zdds)
+  (if zdds
+    (reduce #'zdd-intersection% zdds)
+    (leaf nil)))
 
 
 (defun zdd-family (&rest sets)
@@ -114,9 +123,14 @@
 
 ;;;; Scratch ------------------------------------------------------------------
 (with-zdd
-  (enumerate (gcprint (draw (zdd-union (zdd-family '(1 2 4) '(3 4))
-                                       (zdd-set '(1 2)))))))
+  (enumerate (zdd-union (zdd-set '(1 2))
+                        (zdd-set '(1 2))
+                        (zdd-set '(1))
+                        (zdd-family '(2) '(1 2) '(3))
+                        )))
 
 (with-zdd
   (enumerate (zdd-intersection (zdd-family '(1) '(1 2) '(3) )
-                               (zdd-family '(2 3 4) '(1 4) nil '(1 2)))))
+                               (zdd-family '(2 3 4) '(1 4) nil '(1 2))
+                               (zdd-family nil '(1 2))
+                               )))
