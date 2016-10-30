@@ -116,6 +116,34 @@
     (reduce #'zdd-intersection% zdds)
     (leaf nil)))
 
+(defun zdd-join% (a b)
+  (ematch* (a b)
+    (((leaf nil) _) (leaf nil))
+    ((_ (leaf nil)) (leaf nil))
+
+    (((leaf t) b) b)
+    ((a (leaf t)) a)
+
+    (((node var-a hi-a lo-a)
+      (node var-b hi-b lo-b))
+     (cond
+       ((< var-a var-b) (zdd-node var-a
+                                  (zdd-join% hi-a b)
+                                  (zdd-join% lo-a b)))
+       ((> var-a var-b) (zdd-node var-b
+                                  (zdd-join% hi-b a)
+                                  (zdd-join% lo-b a)))
+       ((= var-a var-b) (zdd-node var-a
+                                  (zdd-union (zdd-join% hi-a lo-b)
+                                             (zdd-join% lo-a hi-b)
+                                             (zdd-join% hi-a hi-b))
+                                  (zdd-join% lo-a lo-b)))))))
+
+(defun zdd-join (&rest zdds)
+  (if zdds
+    (reduce #'zdd-join% zdds)
+    (leaf nil)))
+
 
 (defun zdd-family (&rest sets)
   (reduce #'zdd-union (mapcar #'zdd-set sets)))
@@ -126,11 +154,17 @@
   (enumerate (zdd-union (zdd-set '(1 2))
                         (zdd-set '(1 2))
                         (zdd-set '(1))
-                        (zdd-family '(2) '(1 2) '(3))
-                        )))
+                        (zdd-family '(2) '(1 2) '(3)))))
 
 (with-zdd
   (enumerate (zdd-intersection (zdd-family '(1) '(1 2) '(3) )
                                (zdd-family '(2 3 4) '(1 4) nil '(1 2))
-                               (zdd-family nil '(1 2))
-                               )))
+                               (zdd-family nil '(1 2)))))
+
+
+(with-zdd
+  (enumerate
+    (zdd-join (zdd-family '(1 2) '(7 8) '())
+              (zdd-family '(1 5 9) nil)
+              (zdd-set '(1))
+              )))
