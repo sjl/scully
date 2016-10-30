@@ -144,6 +144,32 @@
     (reduce #'zdd-join% zdds)
     (leaf nil)))
 
+(defun zdd-meet% (a b)
+  (ematch* (a b)
+    (((leaf nil) _) (leaf nil))
+    ((_ (leaf nil)) (leaf nil))
+
+    (((leaf t) _) (leaf t))
+    ((_ (leaf t)) (leaf t))
+
+    (((node var-a hi-a lo-a)
+      (node var-b hi-b lo-b))
+     (cond
+       ((< var-a var-b) (zdd-union (zdd-meet% hi-a b)
+                                   (zdd-meet% lo-a b)))
+       ((> var-a var-b) (zdd-union (zdd-meet% hi-b a)
+                                   (zdd-meet% lo-b a)))
+       ((= var-a var-b) (zdd-node var-a
+                                  (zdd-meet% hi-a hi-b)
+                                  (zdd-union (zdd-meet% hi-a lo-b)
+                                             (zdd-meet% lo-a hi-b)
+                                             (zdd-meet% lo-a lo-b))))))))
+
+(defun zdd-meet (&rest zdds)
+  (if zdds
+    (reduce #'zdd-meet% zdds)
+    (leaf nil)))
+
 
 (defun zdd-family (&rest sets)
   (reduce #'zdd-union (mapcar #'zdd-set sets)))
@@ -166,5 +192,10 @@
   (enumerate
     (zdd-join (zdd-family '(1 2) '(7 8) '())
               (zdd-family '(1 5 9) nil)
-              (zdd-set '(1))
-              )))
+              (zdd-set '(1)))))
+
+(with-zdd
+  (enumerate
+    (zdd-meet (zdd-family '(1 2) '(1 6))
+              (zdd-family '(2)))))
+
