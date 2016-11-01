@@ -24,6 +24,10 @@
   (mapc #'pr (funcall function val))
   val)
 
+(defun line (x)
+  (declare (ignore x))
+  '----------------------------------------)
+
 
 ;;;; GraphViz -----------------------------------------------------------------
 (setf cl-dot:*dot-path* "/usr/local/bin/dot")
@@ -254,6 +258,10 @@
     (leaf nil)))
 
 
+(defun zdd-family (&rest sets)
+  (reduce #'zdd-union (mapcar #'zdd-set sets)))
+
+
 (defun zdd-keep-supersets-of% (zdd set)
   (ematch* (zdd set)
     ((_ nil) zdd)
@@ -306,8 +314,57 @@
   (zdd-keep-avoiders-of% zdd (sort set #'<)))
 
 
-(defun zdd-family (&rest sets)
-  (reduce #'zdd-union (mapcar #'zdd-set sets)))
+(defun zdd-match% (zdd set lower-bound upper-bound)
+  (recursively ((zdd zdd) (set set))
+    (ematch zdd
+      ;; If Z = ∅, there are no candidates for matching.
+      ((sink nil) (leaf nil))
+
+      ;; If Z = {∅}, the only set ∅ can match is the empty set.
+      ((sink t) (if set
+                  (leaf nil)
+                  (leaf t)))
+
+      ;; Otherwise Z is a real node.
+      ((node var hi lo)
+       (cond
+         ;; If we're below the lower bound of the universe, just recur down.
+         ((< var lower-bound) (zdd-node var
+                                        (recur hi set)
+                                        (recur lo set)))
+
+         ;; If we're above the upper bound of the universe, we're never gonna
+         ;; see anything more we might need to match.
+         ;;
+         ;; If our target set is empty, that's perfect.  But if it's NOT empty,
+         ;; we're never gonna satisfy it.
+         ((> var upper-bound) (if set
+                                (leaf nil)
+                                zdd))
+
+         ;; Otherwise Z's var is within the universe.
+         (t (ematch set
+              ;; If our target is empty, only the lo branch of Z can possibly
+              ;; match.
+              (nil (recur lo set))
+
+              ;; Otherwise we've got a target element.  Almost there!
+              ((list* element remaining)
+               (cond
+                 ;; If we're below the target element, we recur down the lo
+                 ;; branch because the hi branch contains something unwanted.
+                 ((< var element) (recur lo set))
+                 ;; If we're above the target element, we can never match.
+                 ((> var element) (leaf nil))
+                 ;; Otherwise, we recur down the hi branch with the rest of our
+                 ;; target (the lo branch is always missing this element).
+                 ((= var element) (zdd-node var
+                                            (recur hi remaining)
+                                            ;        jeeeeeeeesus
+                                            (leaf nil))))))))))))
+
+(defun zdd-match (zdd set lower-bound upper-bound)
+  (zdd-match% zdd (sort set #'<) lower-bound upper-bound))
 
 
 ;;;; Rule Trees ---------------------------------------------------------------
@@ -503,3 +560,22 @@
                               '(1 5)
                               '(5)))))
         :test #'equal))))
+
+
+(let ((*draw-unique-sinks* nil))
+  (with-zdd
+    (-<> (zdd-family
+           '(1 2 100 200 6000)
+           '(100 200 300)
+           '(99 100 200 300)
+           '(1 9900)
+           '()
+           '(1 2 1001)
+           )
+      (mapprint-through #'enumerate <>)
+      (print-through #'line <>)
+      (zdd-match <> '() 100 999)
+      (mapprint-through #'enumerate <>)
+      (draw <>)
+      (never <>)
+      )))
