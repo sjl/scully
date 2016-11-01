@@ -25,8 +25,8 @@
                                      (object t))
   (make-instance 'cl-dot:node
     :attributes (ematch object
-                  ((leaf c) `(:label ,c :shape :ellipse))
-                  ((node v) `(:label ,v :shape :box)))))
+                  ((leaf c) `(:label ,(if c "⊤" "⊥") :shape :square))
+                  ((node v) `(:label ,v :shape :circle)))))
 
 (defmethod cl-dot:graph-object-points-to ((graph (eql 'zdd))
                                           (object t))
@@ -45,7 +45,8 @@
 
 
 ;;;; ZDDs ---------------------------------------------------------------------
-(defparameter *cache* (tg:make-weak-hash-table :weakness :value :test #'equalp))
+(defparameter *cache*
+  (tg:make-weak-hash-table :weakness :value :test #'equalp))
 
 
 (defmacro with-zdd (&body body)
@@ -53,12 +54,39 @@
     ,@body))
 
 (defun enumerate (zdd)
+  "Return a list of all members of `zdd`."
   (ematch zdd
     ((leaf nil) nil)
     ((leaf t) (list nil))
     ((node variable hi lo)
      (append (mapcar (curry #'cons variable) (enumerate hi))
              (enumerate lo)))))
+
+(defun print-enumerated (zdd)
+  (pr (enumerate zdd))
+  zdd)
+
+
+(defun zdd-count (zdd)
+  "Return the number of members of `zdd`."
+  (ematch zdd
+    ((leaf nil) 0)
+    ((leaf t) 1)
+    ((node _ hi lo) (+ (zdd-count hi)
+                       (zdd-count lo)))))
+
+(defun zdd-size (zdd)
+  "Return the number of unique nodes in `zdd`."
+  (let ((seen (make-hash-table :test 'eq)))
+    (recursively ((zdd zdd))
+      (ematch zdd
+        ((leaf) (setf (gethash zdd seen) t))
+        ((node _ hi lo)
+         (when (not (gethash zdd seen))
+           (setf (gethash zdd seen) t)
+           (recur lo)
+           (recur hi)))))
+    (hash-table-count seen)))
 
 (defun unit-patch (z)
   (ematch z
@@ -226,12 +254,22 @@
 
 (with-zdd
   (enumerate
-    (zdd-join (zdd-family '(1 2) '(7 8) '())
-              (zdd-family '(1 5 9) nil)
-              (zdd-set '(1)))))
+    ))
 
 (with-zdd
   (enumerate
-    (zdd-meet (zdd-family '(1 2) '(1 6))
-              (zdd-family '(2)))))
+    (draw (zdd-meet (zdd-family '(1 2) '(1 6))
+              (zdd-family '(2))))))
 
+
+(with-zdd
+  (-<> (zdd-join (zdd-family '(1 2) '(7 8) '())
+                 (zdd-family '(1 5 9) nil)
+                 (zdd-set '(1)))
+    (zdd-remove-supersets-of <> '(5 9))
+    ; (enumerate <>)
+    (draw <>)
+    (print-enumerated <>)
+    (zdd-size <>)
+    )
+  )
