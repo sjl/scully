@@ -235,6 +235,22 @@
   (zdd-remove-supersets-of% zdd (sort set #'<)))
 
 
+(defun zdd-keep-avoiders-of% (zdd set)
+  (ematch* (zdd set)
+    ((_ nil) zdd)
+    (((leaf) _) zdd)
+    (((node var hi lo) (list* el remaining))
+     (cond
+       ((= var el) (zdd-keep-avoiders-of% lo remaining))
+       ((< var el) (zdd-node var
+                             (zdd-keep-avoiders-of% hi set)
+                             (zdd-keep-avoiders-of% lo set)))
+       ((> var el) (zdd-keep-avoiders-of% zdd remaining))))))
+
+(defun zdd-keep-avoiders-of (zdd set)
+  (zdd-keep-avoiders-of% zdd (sort set #'<)))
+
+
 (defun zdd-family (&rest sets)
   (reduce #'zdd-union (mapcar #'zdd-set sets)))
 
@@ -266,10 +282,10 @@
   (-<> (zdd-join (zdd-family '(1 2) '(7 8) '())
                  (zdd-family '(1 5 9) nil)
                  (zdd-set '(1)))
-    (zdd-remove-supersets-of <> '(5 9))
-    ; (enumerate <>)
-    (draw <>)
     (print-enumerated <>)
+    (zdd-keep-avoiders-of <> '(2 7))
+    (print-enumerated <>)
+    (draw <>)
     (zdd-size <>)
     )
   )
