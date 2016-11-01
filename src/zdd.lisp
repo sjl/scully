@@ -171,6 +171,42 @@
     (leaf nil)))
 
 
+(defun zdd-keep-supersets-of% (zdd set)
+  (ematch* (zdd set)
+    ((_ nil) zdd)
+    (((leaf) _) (leaf nil))
+    (((node var hi lo) (list* el remaining))
+     (cond
+       ((= var el) (zdd-node var
+                             (zdd-keep-supersets-of% hi remaining)
+                             (leaf nil)))
+       ((< var el) (zdd-node var
+                             (zdd-keep-supersets-of% hi set)
+                             (zdd-keep-supersets-of% lo set)))
+       ((> var el) (leaf nil))))))
+
+(defun zdd-keep-supersets-of (zdd set)
+  (zdd-keep-supersets-of% zdd (sort set #'<)))
+
+
+(defun zdd-remove-supersets-of% (zdd set)
+  (ematch* (zdd set)
+    ((_ nil) (leaf nil))
+    (((leaf) _) zdd)
+    (((node var hi lo) (list* el remaining))
+     (cond
+       ((= var el) (zdd-node var
+                             (zdd-remove-supersets-of% hi remaining)
+                             lo))
+       ((< var el) (zdd-node var
+                             (zdd-remove-supersets-of% hi set)
+                             (zdd-remove-supersets-of% lo set)))
+       ((> var el) zdd)))))
+
+(defun zdd-remove-supersets-of (zdd set)
+  (zdd-remove-supersets-of% zdd (sort set #'<)))
+
+
 (defun zdd-family (&rest sets)
   (reduce #'zdd-union (mapcar #'zdd-set sets)))
 
