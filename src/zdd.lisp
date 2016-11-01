@@ -15,6 +15,7 @@
 
 ;;;; GraphViz -----------------------------------------------------------------
 (setf cl-dot:*dot-path* "/usr/local/bin/dot")
+(defparameter *draw-unique-sinks* nil)
 
 (defun attrs (object &rest attributes)
   (make-instance 'cl-dot:attributed
@@ -22,23 +23,50 @@
     :attributes attributes))
 
 (defmethod cl-dot:graph-object-node ((graph (eql 'zdd))
-                                     (object t))
+                                     (object node))
   (make-instance 'cl-dot:node
     :attributes (ematch object
-                  ((leaf c) `(:label ,(if c "⊤" "⊥") :shape :square))
                   ((node v) `(:label ,v :shape :circle)))))
+
+(defun sink-attrs (val)
+  `(:label ,(if val "⊤" "⊥")
+    :shape :square
+    :style :filled
+    :fillcolor "#fafafa"
+    :color "#aaaaaa"
+    :fontsize 22
+    :width 0.05
+    ))
+
+(defmethod cl-dot:graph-object-node ((graph (eql 'zdd))
+                                     (object cons))
+  (make-instance 'cl-dot:node
+    :attributes (ematch (car object) ((leaf c) (sink-attrs c)))))
+
+(defmethod cl-dot:graph-object-node ((graph (eql 'zdd))
+                                     (object leaf))
+  (make-instance 'cl-dot:node
+    :attributes (ematch object ((leaf c) (sink-attrs c)))))
+
+(defun wrap-node (object)
+  (if *draw-unique-sinks*
+    object
+    (ematch object
+      ((leaf) (cons object nil))
+      ((node) object))))
 
 (defmethod cl-dot:graph-object-points-to ((graph (eql 'zdd))
                                           (object t))
   (ematch object
-    ((leaf) '())
+    ((leaf _) '())
+    ((cons (leaf) _) '())
     ((node _ hi lo)
-     (list (attrs hi :style :solid)
-           (attrs lo :style :dashed)))))
+     (list (attrs (wrap-node hi) :style :solid)
+           (attrs (wrap-node lo) :style :dashed)))))
 
 (defun draw (zdd &optional (filename "zdd.png"))
   (cl-dot:dot-graph
-    (cl-dot:generate-graph-from-roots 'zdd (list zdd))
+    (cl-dot:generate-graph-from-roots 'zdd (list (wrap-node zdd)))
     filename
     :format :png)
   zdd)
@@ -256,36 +284,14 @@
 
 
 ;;;; Scratch ------------------------------------------------------------------
-(with-zdd
-  (enumerate (zdd-union (zdd-set '(1 2))
-                        (zdd-set '(1 2))
-                        (zdd-set '(1))
-                        (zdd-family '(2) '(1 2) '(3)))))
-
-(with-zdd
-  (enumerate (zdd-intersection (zdd-family '(1) '(1 2) '(3) )
-                               (zdd-family '(2 3 4) '(1 4) nil '(1 2))
-                               (zdd-family nil '(1 2)))))
-
-
-(with-zdd
-  (enumerate
-    ))
-
-(with-zdd
-  (enumerate
-    (draw (zdd-meet (zdd-family '(1 2) '(1 6))
-              (zdd-family '(2))))))
-
-
-(with-zdd
-  (-<> (zdd-join (zdd-family '(1 2) '(7 8) '())
-                 (zdd-family '(1 5 9) nil)
-                 (zdd-set '(1)))
-    (print-enumerated <>)
-    (zdd-keep-avoiders-of <> '(2 7))
-    (print-enumerated <>)
-    (draw <>)
-    (zdd-size <>)
-    )
-  )
+(let ((*draw-unique-sinks* nil))
+  (with-zdd
+    (-<> (zdd-join (zdd-family '(1 2) '(7 8) '())
+                   (zdd-family '(1 5 9) nil)
+                   (zdd-set '(1)))
+      (print-enumerated <>)
+      ; (zdd-keep-avoiders-of <> '(2 7))
+      (print-enumerated <>)
+      (draw <>)
+      (zdd-size <>)
+      )))
