@@ -32,17 +32,14 @@
 ;;;; GraphViz -----------------------------------------------------------------
 (setf cl-dot:*dot-path* "/usr/local/bin/dot")
 (defparameter *draw-unique-sinks* nil)
+(defparameter *draw-unique-nodes* nil)
+(defparameter *draw-hex-p* #'never)
 
 (defun attrs (object &rest attributes)
   (make-instance 'cl-dot:attributed
     :object object
     :attributes attributes))
 
-(defmethod cl-dot:graph-object-node ((graph (eql 'zdd))
-                                     (object node))
-  (make-instance 'cl-dot:node
-    :attributes (ematch object
-                  ((node v) `(:label ,v :shape :circle)))))
 
 (defun sink-attrs (val)
   `(:label ,(if val "⊤" "⊥")
@@ -51,40 +48,53 @@
     :fillcolor "#fafafa"
     :color "#aaaaaa"
     :fontsize 22
-    :width 0.05
-    ))
+    :width 0.05))
 
-(defmethod cl-dot:graph-object-node ((graph (eql 'zdd))
-                                     (object cons))
+(defmethod cl-dot:graph-object-node ((graph (eql 'zdd)) (object node))
   (make-instance 'cl-dot:node
-    :attributes (ematch (car object) ((sink c) (sink-attrs c)))))
+    :attributes (ematch object
+                  ((node v) `(:label ,v
+                              :shape ,(if (funcall *draw-hex-p* v)
+                                        :hexagon
+                                        :circle))))))
 
-(defmethod cl-dot:graph-object-node ((graph (eql 'zdd))
-                                     (object leaf))
+(defmethod cl-dot:graph-object-node ((graph (eql 'zdd)) (object cons))
+  (cl-dot:graph-object-node graph (car object)))
+
+(defmethod cl-dot:graph-object-node ((graph (eql 'zdd)) (object leaf))
   (make-instance 'cl-dot:node
     :attributes (ematch object ((sink c) (sink-attrs c)))))
 
+
 (defun wrap-node (object)
-  (if *draw-unique-sinks*
-    object
-    (ematch object
-      ((sink) (cons object nil))
-      ((node) object))))
+  (ematch object
+    ((sink) (if *draw-unique-sinks* object (cons object nil)))
+    ((node) (if *draw-unique-nodes* object (cons object nil)))))
 
 (defmethod cl-dot:graph-object-points-to ((graph (eql 'zdd))
                                           (object t))
   (ematch object
-    ((sink _) '())
-    ((cons (sink) _) '())
+    ((cons object _)
+     (cl-dot:graph-object-points-to graph object))
+    ((sink _)
+     '())
     ((node _ hi lo)
      (list (attrs (wrap-node hi) :style :solid)
            (attrs (wrap-node lo) :style :dashed)))))
 
-(defun draw (zdd &optional (filename "zdd.png"))
-  (cl-dot:dot-graph
-    (cl-dot:generate-graph-from-roots 'zdd (list (wrap-node zdd)))
-    filename
-    :format :png)
+
+(defun draw (zdd &key
+             (filename "zdd.png")
+             (unique-sinks nil)
+             (unique-nodes t)
+             (hexp #'never))
+  (let ((*draw-unique-sinks* unique-sinks)
+        (*draw-unique-nodes* unique-nodes)
+        (*draw-hex-p* hexp))
+    (cl-dot:dot-graph
+      (cl-dot:generate-graph-from-roots 'zdd (list (wrap-node zdd)))
+      filename
+      :format :png))
   zdd)
 
 
@@ -479,17 +489,17 @@
 
 
 ;;;; Scratch ------------------------------------------------------------------
-(let ((*draw-unique-sinks* nil))
-  (with-zdd
-    (-<> (zdd-join (zdd-family '(1 2) '(7 8) '())
-                   (zdd-family '(1 5 9) nil)
-                   (zdd-set '(1)))
-      (print-through #'enumerate <>)
-      (zdd-keep-avoiders-of <> '(2 7))
-      (print-through #'enumerate <>)
-      (draw <>)
-      (zdd-size <>)
-      )))
+(with-zdd
+  (-<> (zdd-join (zdd-family '(1 2) '(7 8) '())
+                 (zdd-family '(1 5 9) nil)
+                 (zdd-set '(1)))
+    (print-through #'enumerate <>)
+    (zdd-keep-avoiders-of <> '(2 7))
+    (print-through #'enumerate <>)
+    (draw <>)
+    (zdd-size <>)
+    ))
+
 
 (defparameter *rules* '(
                         (1001 (not 2) 1)
@@ -512,39 +522,38 @@
                         )
   )
 
-(let ((*draw-unique-sinks* t))
-  (with-zdd
-    (-<> (make-rule-tree *rules*)
-      ; (print-enumerated <>)
-      ; (zdd-keep-avoiders-of <> '(2 7))
-      (mapprint-through #'enumerate <>)
-      (print-through #'zdd-count <>)
-      (print-through #'zdd-size <>)
-      (draw <>)
-      ; (zdd-size <>)
-      (never)
-      )
-    (pr '--------------)
-    (-<> (apply #'zdd-family *state*)
-      (mapprint-through #'enumerate <>)
-      (print-through #'zdd-count <>)
-      (print-through #'zdd-size <>)
-      ; (draw <>)
-      ; (zdd-size <>)
-      (never)
-      )
-    (pr '--------------)
-    (-<> (apply-rule-tree (apply #'zdd-family *state*)
-                          (make-rule-tree *rules*)
-                          100)
-      (mapprint-through #'enumerate <>)
-      (print-through #'zdd-count <>)
-      (print-through #'zdd-size <>)
-      ; (draw <>)
-      ; (zdd-size <>)
-      (never)
-      )
-    ))
+(with-zdd
+  (-<> (make-rule-tree *rules*)
+    ; (print-enumerated <>)
+    ; (zdd-keep-avoiders-of <> '(2 7))
+    (mapprint-through #'enumerate <>)
+    (print-through #'zdd-count <>)
+    (print-through #'zdd-size <>)
+    (draw <> :unique-sinks t :unique-nodes t :hexp (curry #'<= 1000))
+    ; (zdd-size <>)
+    (never)
+    )
+  ; (pr '--------------)
+  ; (-<> (apply #'zdd-family *state*)
+  ;   (mapprint-through #'enumerate <>)
+  ;   (print-through #'zdd-count <>)
+  ;   (print-through #'zdd-size <>)
+  ;   ; (draw <>)
+  ;   ; (zdd-size <>)
+  ;   (never)
+  ;   )
+  ; (pr '--------------)
+  ; (-<> (apply-rule-tree (apply #'zdd-family *state*)
+  ;                       (make-rule-tree *rules*)
+  ;                       100)
+  ;   (mapprint-through #'enumerate <>)
+  ;   (print-through #'zdd-count <>)
+  ;   (print-through #'zdd-size <>)
+  ;   ; (draw <>)
+  ;   ; (zdd-size <>)
+  ;   (never)
+  ;   )
+  )
 
 
 (defun test ()
@@ -562,20 +571,19 @@
         :test #'equal))))
 
 
-(let ((*draw-unique-sinks* nil))
-  (with-zdd
-    (-<> (zdd-family
-           '(1 2 100 200 6000)
-           '(100 200 300)
-           '(99 100 200 300)
-           '(1 9900)
-           '()
-           '(1 2 1001)
-           )
-      (mapprint-through #'enumerate <>)
-      (print-through #'line <>)
-      (zdd-match <> '() 100 999)
-      (mapprint-through #'enumerate <>)
-      (draw <>)
-      (never <>)
-      )))
+(with-zdd
+  (-<> (zdd-family
+         '(1 2 100 200 6000)
+         '(100 200 300)
+         '(99 100 200 300)
+         '(1 9900)
+         '()
+         '(1 2 1001)
+         )
+    (mapprint-through #'enumerate <>)
+    (print-through #'line <>)
+    (zdd-match <> '(100 200) 100 999)
+    (mapprint-through #'enumerate <>)
+    (draw <> :hexp (lambda (v) (>= 999 v 100)))
+    (never <>)
+    ))
