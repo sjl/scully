@@ -9,9 +9,6 @@
                   (tg:gc :full t :verbose t))
            args)))
 
-(defpattern sink (&optional content)
-  `(structure leaf :content ,content))
-
 (defun never (val)
   (declare (ignore val))
   (values))
@@ -27,6 +24,21 @@
 (defun line (x)
   (declare (ignore x))
   '----------------------------------------)
+
+
+;;;; Bullshit -----------------------------------------------------------------
+;;; The BDD lib defines a pattern for `node` but not for `leaf`.  It's awkward
+;;; to have two different syntaxes.  But if we define a pattern for `leaf` and
+;;; then try to reload the BDD lib it will explode, because the lib uses the
+;;; second syntax!  So basically we'll just rename "leaf" to "sink" and get on
+;;; with our lives.  Christ.
+(defpattern sink (&optional content)
+  `(structure leaf :content ,content))
+
+(defun sink (thing)
+  (leaf thing))
+
+(deftype sink () 'leaf)
 
 
 ;;;; GraphViz -----------------------------------------------------------------
@@ -160,7 +172,7 @@
 (defun unit-patch (z)
   (ematch z
     ((sink t) z)
-    ((sink nil) (leaf t))
+    ((sink nil) (sink t))
     ((node variable hi lo)
      (zdd-node variable hi (unit-patch lo)))))
 
@@ -187,14 +199,14 @@
 (defun zdd-union (&rest zdds)
   (if zdds
     (reduce #'zdd-union% zdds)
-    (leaf nil)))
+    (sink nil)))
 
 (defun zdd-intersection% (a b)
   (ematch* (a b)
     (((node) (sink)) (zdd-intersection% b a))
 
-    (((sink nil) _) (leaf nil))
-    ((_ (sink nil)) (leaf nil))
+    (((sink nil) _) (sink nil))
+    ((_ (sink nil)) (sink nil))
 
     (((sink t) (sink _)) b)
     (((sink t) (node _ _ lo)) (zdd-intersection% a lo))
@@ -211,12 +223,12 @@
 (defun zdd-intersection (&rest zdds)
   (if zdds
     (reduce #'zdd-intersection% zdds)
-    (leaf nil)))
+    (sink nil)))
 
 (defun zdd-join% (a b)
   (ematch* (a b)
-    (((sink nil) _) (leaf nil))
-    ((_ (sink nil)) (leaf nil))
+    (((sink nil) _) (sink nil))
+    ((_ (sink nil)) (sink nil))
 
     (((sink t) b) b)
     ((a (sink t)) a)
@@ -239,15 +251,15 @@
 (defun zdd-join (&rest zdds)
   (if zdds
     (reduce #'zdd-join% zdds)
-    (leaf nil)))
+    (sink nil)))
 
 (defun zdd-meet% (a b)
   (ematch* (a b)
-    (((sink nil) _) (leaf nil))
-    ((_ (sink nil)) (leaf nil))
+    (((sink nil) _) (sink nil))
+    ((_ (sink nil)) (sink nil))
 
-    (((sink t) _) (leaf t))
-    ((_ (sink t)) (leaf t))
+    (((sink t) _) (sink t))
+    ((_ (sink t)) (sink t))
 
     (((node var-a hi-a lo-a)
       (node var-b hi-b lo-b))
@@ -265,7 +277,7 @@
 (defun zdd-meet (&rest zdds)
   (if zdds
     (reduce #'zdd-meet% zdds)
-    (leaf nil)))
+    (sink nil)))
 
 
 (defun zdd-family (&rest sets)
@@ -275,16 +287,16 @@
 (defun zdd-keep-supersets-of% (zdd set)
   (ematch* (zdd set)
     ((_ nil) zdd)
-    (((sink) _) (leaf nil))
+    (((sink) _) (sink nil))
     (((node var hi lo) (list* el remaining))
      (cond
        ((= var el) (zdd-node var
                              (zdd-keep-supersets-of% hi remaining)
-                             (leaf nil)))
+                             (sink nil)))
        ((< var el) (zdd-node var
                              (zdd-keep-supersets-of% hi set)
                              (zdd-keep-supersets-of% lo set)))
-       ((> var el) (leaf nil))))))
+       ((> var el) (sink nil))))))
 
 (defun zdd-keep-supersets-of (zdd set)
   (zdd-keep-supersets-of% zdd (sort set #'<)))
@@ -292,7 +304,7 @@
 
 (defun zdd-remove-supersets-of% (zdd set)
   (ematch* (zdd set)
-    ((_ nil) (leaf nil))
+    ((_ nil) (sink nil))
     (((sink) _) zdd)
     (((node var hi lo) (list* el remaining))
      (cond
@@ -328,12 +340,12 @@
   (recursively ((zdd zdd) (set set))
     (ematch zdd
       ;; If Z = ∅, there are no candidates for matching.
-      ((sink nil) (leaf nil))
+      ((sink nil) (sink nil))
 
       ;; If Z = {∅}, the only set ∅ can match is the empty set.
       ((sink t) (if set
-                  (leaf nil)
-                  (leaf t)))
+                  (sink nil)
+                  (sink t)))
 
       ;; Otherwise Z is a real node.
       ((node var hi lo)
@@ -349,7 +361,7 @@
          ;; If our target set is empty, that's perfect.  But if it's NOT empty,
          ;; we're never gonna satisfy it.
          ((> var upper-bound) (if set
-                                (leaf nil)
+                                (sink nil)
                                 zdd))
 
          ;; Otherwise Z's var is within the universe.
@@ -365,13 +377,13 @@
                  ;; branch because the hi branch contains something unwanted.
                  ((< var element) (recur lo set))
                  ;; If we're above the target element, we can never match.
-                 ((> var element) (leaf nil))
+                 ((> var element) (sink nil))
                  ;; Otherwise, we recur down the hi branch with the rest of our
                  ;; target (the lo branch is always missing this element).
                  ((= var element) (zdd-node var
                                             (recur hi remaining)
                                             ;        jeeeeeeeesus
-                                            (leaf nil))))))))))))
+                                            (sink nil))))))))))))
 
 (defun zdd-match (zdd set lower-bound upper-bound)
   (zdd-match% zdd (sort set #'<) lower-bound upper-bound))
@@ -582,7 +594,7 @@
          )
     (mapprint-through #'enumerate <>)
     (print-through #'line <>)
-    (zdd-match <> '(100 200) 100 999)
+    (zdd-match <> '() 100 999)
     (mapprint-through #'enumerate <>)
     (draw <> :hexp (lambda (v) (>= 999 v 100)))
     (never <>)
