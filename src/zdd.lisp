@@ -13,17 +13,16 @@
   (declare (ignore val))
   (values))
 
-(defun print-through (function val)
-  (pr (funcall function val))
+(defun print-through (function-or-object val)
+  (if (functionp function-or-object)
+    (pr (funcall function-or-object val))
+    (pr function-or-object))
   val)
 
 (defun mapprint-through (function val)
+  "Calling `function` on each item in `val` and print the result, return `val`."
   (mapc #'pr (funcall function val))
   val)
-
-(defun line (x)
-  (declare (ignore x))
-  '----------------------------------------)
 
 
 ;;;; Bullshit -----------------------------------------------------------------
@@ -116,8 +115,10 @@
 
 
 (defmacro with-zdd (&body body)
+  "Execute `body` with the ZDD settings properly initialized."
   `(with-odd-context (:operation #'zdd-apply :node-cache *cache*)
     ,@body))
+
 
 (defun enumerate (zdd)
   "Return a list of all members of `zdd`."
@@ -150,6 +151,7 @@
            (recur hi)))))
     (hash-table-count seen)))
 
+
 (defun pick-random (a a-weight b b-weight)
   (if (< (random (+ a-weight b-weight))
          a-weight)
@@ -169,15 +171,18 @@
          (zdd-random-member lo)
          (cons var (zdd-random-member hi)))))))
 
-(defun unit-patch (z)
-  (ematch z
-    ((sink t) z)
+
+(defun unit-patch (zdd)
+  "Ensure the empty set is a member of `zdd`."
+  (ematch zdd
+    ((sink t) zdd)
     ((sink nil) (sink t))
     ((node variable hi lo)
      (zdd-node variable hi (unit-patch lo)))))
 
 
 (defun zdd-set (elements)
+  "Return a ZDD with a single member (which contains `elements`)."
   (make-set elements))
 
 
@@ -197,6 +202,7 @@
                                   (zdd-union% hi-a hi-b)
                                   (zdd-union% lo-a lo-b)))))))
 (defun zdd-union (&rest zdds)
+  "Return the union of ZDDs: {α | α ∈ Z₁ or α ∈ Z₂}."
   (if zdds
     (reduce #'zdd-union% zdds)
     (sink nil)))
@@ -221,6 +227,7 @@
                                   (zdd-intersection% lo-a lo-b)))))))
 
 (defun zdd-intersection (&rest zdds)
+  "Return the intersection of ZDDs: {α | α ∈ Z₁ and α ∈ Z₂}."
   (if zdds
     (reduce #'zdd-intersection% zdds)
     (sink nil)))
@@ -249,6 +256,7 @@
                                   (zdd-join% lo-a lo-b)))))))
 
 (defun zdd-join (&rest zdds)
+  "Return the relational join of ZDDs: {α ∪ β | α ∈ Z₁ and β ∈ Z₂}."
   (if zdds
     (reduce #'zdd-join% zdds)
     (sink nil)))
@@ -275,12 +283,14 @@
                                              (zdd-meet% lo-a lo-b))))))))
 
 (defun zdd-meet (&rest zdds)
+  "Return the relational meet of ZDDs: {α ∩ β | α ∈ Z₁ and β ∈ Z₂}."
   (if zdds
     (reduce #'zdd-meet% zdds)
     (sink nil)))
 
 
 (defun zdd-family (&rest sets)
+  "Return a ZDD that contains each of the given `sets` as members."
   (reduce #'zdd-union (mapcar #'zdd-set sets)))
 
 
@@ -299,6 +309,7 @@
        ((> var el) (sink nil))))))
 
 (defun zdd-keep-supersets-of (zdd set)
+  "Return a ZDD of all supersets of `set` in `zdd`: {α | α ∈ Z and α ⊇ S}."
   (zdd-keep-supersets-of% zdd (sort set #'<)))
 
 
@@ -317,6 +328,7 @@
        ((> var el) zdd)))))
 
 (defun zdd-remove-supersets-of (zdd set)
+  "Return a ZDD of all non-supersets of `set` in `zdd`: {α | α ∈ Z and α ⊉ S}."
   (zdd-remove-supersets-of% zdd (sort set #'<)))
 
 
@@ -333,6 +345,7 @@
        ((> var el) (zdd-keep-avoiders-of% zdd remaining))))))
 
 (defun zdd-keep-avoiders-of (zdd set)
+  "Return a ZDD of members of `zdd` avoiding `set`: {α | α ∈ Z and α ∩ S = ø}."
   (zdd-keep-avoiders-of% zdd (sort set #'<)))
 
 
@@ -386,6 +399,11 @@
                                             (sink nil))))))))))))
 
 (defun zdd-match (zdd set lower-bound upper-bound)
+  "Return a ZDD of members that exactly match `set` within the universe.
+
+  {α | α ∈ Z and α ∩ U = S}
+
+  "
   (zdd-match% zdd (sort set #'<) lower-bound upper-bound))
 
 
@@ -593,7 +611,7 @@
          '(1 2 1001)
          )
     (mapprint-through #'enumerate <>)
-    (print-through #'line <>)
+    (print-through '-------------- <>)
     (zdd-match <> '() 100 999)
     (mapprint-through #'enumerate <>)
     (draw <> :hexp (lambda (v) (>= 999 v 100)))
