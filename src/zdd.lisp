@@ -464,6 +464,17 @@
 
 
 (defun make-rule-tree (rules)
+  "Create a rule tree ZDD from the given logical `rules`.
+
+  `rules` should be a list of rules, each of the form:
+  `(head-term &rest body-terms)`
+
+  Each head term should be a single variable.
+  Each body term should be either a single variable or `(not variable)`.
+
+  Rules and bodies do not need to be sorted beforehand.
+
+  "
   (recursively ((rules (mapcar #'sort-body rules))
                 (accumulated-heads nil))
     (let* ((heads (-<> rules
@@ -485,6 +496,12 @@
 
 
 (defun apply-rule-tree (zdd rule-tree head-bound)
+  "Apply the logical rules in `rule-tree` to the sets in `zdd`.
+
+  `zdd` is assumed to contain sets of logical axioms.  This function will update
+  each of these sets to add any rule heads derivable from the axioms in the set.
+
+  "
   (recursively ((zdd zdd)
                 (rule-tree rule-tree))
     (ematch* (zdd rule-tree)
