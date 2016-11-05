@@ -17,6 +17,7 @@
                :cl-algebraic-data-type
                :cl-arrows
                :cl-ggp
+               :cl-hamt
                :trivialib.bdd)
 
   :serial t

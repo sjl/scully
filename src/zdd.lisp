@@ -463,6 +463,59 @@
               (remove-if-not #'rule-ignores rules)))))
 
 
+(defmethod print-object ((set hash-set) stream)
+  (print-unreadable-object (set stream :type t :identity nil)
+    (prin1 (set->list set) stream)))
+
+(defun hash-set= (s1 s2)
+  (zerop (set-size (set-symmetric-diff s1 s2))))
+
+(defun rule-head-in (set rule)
+  (set-lookup set (rule-head rule)))
+
+(defun collapse-positive-heads (rules-and-heads)
+  (destructuring-bind (rules heads) rules-and-heads
+    (flet ((update-rule (rule)
+             (cons (rule-head rule)
+                   (remove-if (curry #'set-lookup heads)
+                              (rule-body rule)))))
+      (let* ((new-rules (set-map #'update-rule rules))
+             (new-heads (-<> new-rules
+                          (set-filter #'rule-empty-p <>)
+                          (set-map #'rule-head <>))))
+        (list (set-filter (complement (curry #'rule-head-in new-heads))
+                          new-rules)
+              (set-union heads new-heads))))))
+
+(defun find-strictly-negative-rules (rules)
+  (set-filter (lambda (rule)
+                (every #'negationp (rule-body rule)))
+              rules))
+
+(defun collapse-negative-heads (rules-and-heads)
+  (destructuring-bind (rules heads) rules-and-heads
+    (if (zerop (set-size rules))
+      (list rules heads)
+      (labels ((negation-satisfied-p (negation)
+                 (not (set-lookup heads (bare-term negation))))
+               (rule-satisfied-p (rule)
+                 (every #'negation-satisfied-p (rule-body rule)))
+               (smallest-head ()
+                 (-<> (set->list rules)
+                   (mapcar #'rule-head <>)
+                   (sort <> #'term<)
+                   (first <>)))
+               (rules-with-head (head)
+                 (set-filter (lambda (rule) (eql head (rule-head rule)))
+                             rules)))
+        (let* ((next (smallest-head))
+               (candidates (rules-with-head next)))
+          (list (set-diff rules candidates)
+                (if (some #'rule-satisfied-p (set->list candidates))
+                  (set-insert heads next)
+                  heads)))))))
+
+
 (defun make-rule-tree (rules)
   "Create a rule tree ZDD from the given logical `rules`.
 
@@ -537,100 +590,46 @@
 
 ;;;; Scratch ------------------------------------------------------------------
 (with-zdd
-  (-<> (zdd-join (zdd-family '(1 2) '(7 8) '())
-                 (zdd-family '(1 5 9) nil)
-                 (zdd-set '(1)))
-    (print-through #'enumerate <>)
-    (zdd-keep-avoiders-of <> '(2 7))
-    (print-through #'enumerate <>)
-    (draw <>)
-    (zdd-size <>)
-    ))
-
-
-(defparameter *rules* '(
-                        (1001 (not 2) 1)
-                        (1001 1 3)
-                        (1002 3)
-                        (1003 4 2)
-                        (1003 (not 3) 4)
-                        (1004 1 2 3 (not 4))
-                        (1005 (not 2) (not 3))
-                        (1006 4 5)
-                        (1006 2)
-                        ))
-
-(defparameter *state* '(
-                        (1 3)
-                        (1 2)
-                        (2 4 5)
-                        ()
-                        (1 2 4 7)
-                        )
-  )
-
-(with-zdd
   (-<> (make-rule-tree *rules*)
-    ; (print-enumerated <>)
-    ; (zdd-keep-avoiders-of <> '(2 7))
-    (mapprint-through #'enumerate <>)
     (print-through #'zdd-count <>)
     (print-through #'zdd-size <>)
-    (draw <> :unique-sinks t :unique-nodes t :hexp (curry #'<= 1000))
-    ; (zdd-size <>)
-    (never)
-    )
-  ; (pr '--------------)
-  ; (-<> (apply #'zdd-family *state*)
-  ;   (mapprint-through #'enumerate <>)
-  ;   (print-through #'zdd-count <>)
-  ;   (print-through #'zdd-size <>)
-  ;   ; (draw <>)
-  ;   ; (zdd-size <>)
-  ;   (never)
-  ;   )
-  ; (pr '--------------)
-  ; (-<> (apply-rule-tree (apply #'zdd-family *state*)
-  ;                       (make-rule-tree *rules*)
-  ;                       100)
-  ;   (mapprint-through #'enumerate <>)
-  ;   (print-through #'zdd-count <>)
-  ;   (print-through #'zdd-size <>)
-  ;   ; (draw <>)
-  ;   ; (zdd-size <>)
-  ;   (never)
-  ;   )
-  )
-
-
-(defun test ()
-  (with-zdd
-    (print-hash-table
-      (frequencies
-        (iterate (repeat 10000)
-                 (collect (zdd-random-member
-                            (zdd-family
-                              '(1 2 3)
-                              '(2)
-                              '(1 3)
-                              '(1 5)
-                              '(5)))))
-        :test #'equal))))
-
-
-(with-zdd
-  (-<> (zdd-family
-         '(1 2 100 200 6000)
-         '(100 200 300)
-         '(99 100 200 300)
-         '(1 9900)
-         '()
-         '(1 2 1001)
-         )
-    (mapprint-through #'enumerate <>)
-    (print-through '-------------- <>)
-    (zdd-match <> '() 100 999)
-    (mapprint-through #'enumerate <>)
-    (draw <> :hexp (lambda (v) (>= 999 v 100)))
+    (draw <> :unique-sinks nil :unique-nodes t
+          :hexp (lambda (v) (<= 1000 v)))
     (never <>)
     ))
+
+(defun test (l)
+  (fixed-point #'collapse-positive-heads
+               (list (set-insert (empty-set)
+                                 '(100 1 2)
+                                 '(1001 100 200)
+                                 '(2000 1 (not 1001))
+                                 '(3000 1 (not 100))
+                                 '(1 10)
+                                 '(2 30 1))
+                     (set-insert (empty-set :test #'eql)
+                                 '10 '20 '30))
+               :limit l
+               :test (lambda (old new)
+                       (and (hash-set= (first old)
+                                       (first new))
+                            (hash-set= (second old)
+                                       (second new))))))
+
+
+;;;; TODO
+;;
+;; * Implement head fixed-point thing for rule trees
+;;   * Positive head fixed-pointing
+;;   * Negative head fixed-pointing
+;; * Fact edge case addition
+;;   * all (next ...) and (init ...) should have (true ...) equivalents
+;;   * all (legal ...) should have (does ...) equivalents
+;; * Ordering for facts
+;;   * Base < Does < Possible <        Happens
+;;     true   does   legal/term/goal   sees/next
+;; * Poster
+;;   * Monty Hall
+;;     * Pictures
+;;     * Fact sets
+;;   * ZDDs

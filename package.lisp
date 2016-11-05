@@ -11,14 +11,6 @@
     :load-rules
     :redump-gdl))
 
-(defpackage :scully.rule-trees
-  (:use
-    :cl
-    :losh
-    :iterate
-    :cl-arrows
-    :scully.quickutils)
-  (:export))
 
 (defpackage :scully.zdd
   (:use
@@ -26,12 +18,11 @@
     :losh
     :iterate
     :cl-arrows
+    :hamt
     :trivia
     :trivialib.bdd
     :scully.quickutils)
-  (:export)
-  (:shadowing-import-from :trivialib.bdd
-    :make-set))
+  (:export))
 
 (defpackage :scully.reasoners.prolog
   (:use

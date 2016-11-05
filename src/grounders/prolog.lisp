@@ -2,13 +2,6 @@
 
 
 ;;;; Utils
-(defun fixed-point (function data &key (test 'eql))
-  "Find the fixed point of `function`, starting with `data`."
-  (let ((next (funcall function data)))
-    (if (funcall test data next)
-      data
-      (fixed-point function next :test test))))
-
 (defun gensyms (n prefix)
   (iterate (repeat n) (collect (gensym prefix))))
 
