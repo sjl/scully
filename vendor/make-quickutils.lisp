@@ -5,10 +5,12 @@
   :utilities '(
 
                :compose
+               :copy-hash-table
                :curry
                :ensure-boolean
                :ensure-gethash
                :ensure-list
+               :hash-table-keys
                :map-product
                :mkstr
                :once-only

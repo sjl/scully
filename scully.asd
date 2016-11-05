@@ -9,15 +9,20 @@
 
   :depends-on (:iterate
                :losh
+               :cl-graph
                :temperance
                :hunchentoot
-               :optima
                :smug
+               :named-readtables
+               :fare-quasiquote
+               :fare-quasiquote-readtable
                :cl-dot
                :cl-algebraic-data-type
                :cl-arrows
                :cl-ggp
                :cl-hamt
+               :trivia
+               :trivia.quasiquote
                :trivialib.bdd)
 
   :serial t
@@ -27,7 +32,8 @@
                (:file "package")
                (:module "src" :serial t
                 :components ((:file "gdl")
-                             (:file "zdd")
+                            #+no  (:file "terms")
+                            #+no (:file "zdd")
                              (:module "reasoners" :serial t
                               :components ((:file "prolog")))
                              (:module "grounders" :serial t

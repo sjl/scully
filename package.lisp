@@ -12,6 +12,16 @@
     :redump-gdl))
 
 
+(defpackage :scully.dag
+  (:use
+    :cl
+    :losh
+    :iterate
+    :cl-arrows
+    :trivia
+    :scully.quickutils)
+  (:export))
+
 (defpackage :scully.zdd
   (:use
     :cl
@@ -21,6 +31,17 @@
     :hamt
     :trivia
     :trivialib.bdd
+    :scully.quickutils)
+  (:export))
+
+(defpackage :scully.terms
+  (:use
+    :cl
+    :losh
+    :iterate
+    :cl-arrows
+    :trivia
+    :named-readtables
     :scully.quickutils)
   (:export))
 

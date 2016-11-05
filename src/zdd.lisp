@@ -589,15 +589,6 @@
 
 
 ;;;; Scratch ------------------------------------------------------------------
-(with-zdd
-  (-<> (make-rule-tree *rules*)
-    (print-through #'zdd-count <>)
-    (print-through #'zdd-size <>)
-    (draw <> :unique-sinks nil :unique-nodes t
-          :hexp (lambda (v) (<= 1000 v)))
-    (never <>)
-    ))
-
 (defun test (l)
   (fixed-point #'collapse-positive-heads
                (list (set-insert (empty-set)
