@@ -76,33 +76,22 @@
 
 
 
-(defun find-vertex (graph element)
-  ; please kill me
-  (cl-graph:search-for-vertex graph element
-                              :test #'equal
-                              :key #'cl-graph::value ; because fuck you
-                              :error-if-not-found? nil))
-
 (defun build-layer-graph (rules)
-  (let ((graph (cl-graph:make-graph 'cl-graph:graph-container
-                                    :default-edge-type :directed
-                                    :test #'equal)))
-    (map nil (curry #'cl-graph:add-vertex graph)
-         (remove-duplicates (mapcar #'first rules) :test #'equal))
+  (let ((graph (digraph:make-digraph :test #'equal
+                                     :initial-vertices (mapcar #'first rules))))
     (iterate
       (for (head . body) :in rules)
-      (for vhead = (find-vertex graph head))
       (iterate (for term :in body)
                (when (negationp term)
-                 (let ((vdep (find-vertex graph (bare-term term))))
-                   (cl-graph:add-edge-between-vertexes graph vhead vdep)))))
+                 (let ((dependency (bare-term term)))
+                   (when (digraph:contains-vertex-p graph dependency)
+                     (digraph:insert-edge graph head dependency))))))
     graph))
 
 (defun order-rules (rules)
   (-<> rules
     build-layer-graph
-    cl-graph:topological-sort
-    (mapcar #'cl-graph::value <>))) ; eat shit
+    (digraph::map-topological #'identity <>)))
 
 
 
@@ -111,22 +100,11 @@
                        '((t foo) a)
                        '((t bar) a (not (t foo)))
                        '((t baz) a (not (t bar)))
+                       '((t dogs) a x)
+                       '((t cats) a (not (t dogs)))
                        )))
 
-(cl-graph:vertexes *g*)
-(cl-graph:edges *g*)
-(*g*)
-
 (order-rules (list
-  '((t foo) a)
-  '((t bar) a (not (t foo)))
-  '((t baz) a (not (t bar)))
-  ))
-
-
-(defparameter *g*
-  (cl-graph:make-graph 'cl-graph:graph-container
-                       :default-edge-type :directed))
-(cl-graph:vertexes *g*)
-(cl-graph:add-vertex *g* (list 1))
-(cl-graph:add-vertex *g* (list 1))
+               '((t foo) a)
+               '((t bar) a (not (t foo)))
+               '((t baz) a (not (t bar)))))

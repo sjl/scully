@@ -9,7 +9,8 @@
 
   :depends-on (:iterate
                :losh
-               :cl-graph
+               :cl-digraph
+               :cl-digraph.dot
                :temperance
                :hunchentoot
                :smug
@@ -32,8 +33,8 @@
                (:file "package")
                (:module "src" :serial t
                 :components ((:file "gdl")
-                            #+no  (:file "terms")
-                            #+no (:file "zdd")
+                             (:file "terms")
+                             (:file "zdd")
                              (:module "reasoners" :serial t
                               :components ((:file "prolog")))
                              (:module "grounders" :serial t
