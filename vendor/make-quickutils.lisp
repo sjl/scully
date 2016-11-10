@@ -10,6 +10,7 @@
                :ensure-boolean
                :ensure-gethash
                :ensure-list
+               :flatten-once
                :hash-table-keys
                :map-product
                :mkstr

@@ -2,7 +2,7 @@
 ;;;; See http://quickutil.org for details.
 
 ;;;; To regenerate:
-;;;; (qtlc:save-utils-as "quickutils.lisp" :utilities '(:COMPOSE :COPY-HASH-TABLE :CURRY :ENSURE-BOOLEAN :ENSURE-GETHASH :ENSURE-LIST :HASH-TABLE-KEYS :MAP-PRODUCT :MKSTR :ONCE-ONLY :RCURRY :SET-EQUAL :WITH-GENSYMS :WITH-OUTPUT-TO-FILE) :ensure-package T :package "SCULLY.QUICKUTILS")
+;;;; (qtlc:save-utils-as "quickutils.lisp" :utilities '(:COMPOSE :COPY-HASH-TABLE :CURRY :ENSURE-BOOLEAN :ENSURE-GETHASH :ENSURE-LIST :FLATTEN-ONCE :HASH-TABLE-KEYS :MAP-PRODUCT :MKSTR :ONCE-ONLY :RCURRY :SET-EQUAL :WITH-GENSYMS :WITH-OUTPUT-TO-FILE) :ensure-package T :package "SCULLY.QUICKUTILS")
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (unless (find-package "SCULLY.QUICKUTILS")
@@ -16,9 +16,10 @@
   (setf *utilities* (union *utilities* '(:MAKE-GENSYM-LIST :ENSURE-FUNCTION
                                          :COMPOSE :COPY-HASH-TABLE :CURRY
                                          :ENSURE-BOOLEAN :ENSURE-GETHASH
-                                         :ENSURE-LIST :MAPHASH-KEYS
-                                         :HASH-TABLE-KEYS :MAPPEND :MAP-PRODUCT
-                                         :MKSTR :ONCE-ONLY :RCURRY :SET-EQUAL
+                                         :ENSURE-LIST :FLATTEN-ONCE
+                                         :MAPHASH-KEYS :HASH-TABLE-KEYS
+                                         :MAPPEND :MAP-PRODUCT :MKSTR
+                                         :ONCE-ONLY :RCURRY :SET-EQUAL
                                          :STRING-DESIGNATOR :WITH-GENSYMS
                                          :WITH-OPEN-FILE* :WITH-OUTPUT-TO-FILE))))
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -137,6 +138,15 @@ already in the table."
     (if (listp list)
         list
         (list list)))
+  
+
+  (defun flatten-once (list)
+    "Flatten `list` once."
+    (loop :for x :in list
+          :if (listp x)
+            :append x 
+          :else
+            :collect x))
   
 
   (declaim (inline maphash-keys))
@@ -336,7 +346,8 @@ which is only sent to `with-open-file` when it's not `nil`."
   
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (export '(compose copy-hash-table curry ensure-boolean ensure-gethash
-            ensure-list hash-table-keys map-product mkstr once-only rcurry
-            set-equal with-gensyms with-unique-names with-output-to-file)))
+            ensure-list flatten-once hash-table-keys map-product mkstr
+            once-only rcurry set-equal with-gensyms with-unique-names
+            with-output-to-file)))
 
 ;;;; END OF quickutils.lisp ;;;;
