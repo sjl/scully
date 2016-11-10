@@ -2,7 +2,7 @@
 (in-readtable :fare-quasiquote)
 
 
-;;;; Overview
+;;;; Overview -----------------------------------------------------------------
 ;;; We start with a set of grounded rules like: ((next bar) x y (true foo)).
 ;;;
 ;;; We need to turn map each term to a unique integer, making sure that they end
@@ -20,9 +20,11 @@
 ;;;          (sees ...)
 ;;;           anything that depends on only these or lower
 ;;;
+;;; Within each layer the ordering is arbitrary, EXCEPT that if a rule X that
+;;; relies on the negation of a rule Y, then Y must come before X.
 
 
-;;;; Ordering -----------------------------------------------------------------
+;;;; Utils --------------------------------------------------------------------
 (defun-match bare-term (term)
   (`(not ,x) x)
   (x x))
@@ -32,50 +34,101 @@
   (_ nil))
 
 
-(defun content< (c1 c2)
-  nil
-  )
+(defun-match normalize-term (term)
+  (`(not ,body) `(not ,(normalize-term body)))
+  (_ (ensure-list term)))
 
-(defun-match* same-predicate-p (t1 t2)
-  ((`(,h1 ,@_)
-    `(,h2 ,@_))
-   (equal h1 h2))
-  ((_ _) nil))
+(defun normalize-rule (rule)
+  (mapcar #'normalize-term (ensure-list rule)))
 
-
-(defun-ematch layer-id (l)
-  (:base 0)
-  (:does 1)
-  (:possible 2)
-  (:happens 3))
-
-(defun-match layer (term)
-  (`(,head ,@_) (case head
-                  (true :base)
-                  (does :does)
-                  ((legal goal) :possible)
-                  ((next sees) :happening)))
-  ('terminal :possible)
-  (_ (error "Unknown layer for ~S" term)))
-
-(defun layer< (l1 l2)
-  (< (layer-id l1)
-     (layer-id l2)))
-
-(defun layer= (l1 l2)
-  (eql l1 l2))
+(defun normalize-rules (rules)
+  (mapcar #'normalize-rule rules))
 
 
-(defun term< (t1 t2)
-  (let ((l1 (layer t1))
-        (l2 (layer t2)))
-    (if (not (layer= l1 l2))
-      (layer< l1 l2)
+;;;; Dependency Graph ---------------------------------------------------------
+(defun build-dependency-graph (rules &key negations-only)
+  (let ((graph (digraph:make-digraph :test #'equal)))
+    (labels
+        ((mark-dependency (head-pred body-pred)
+           (digraph:insert-vertex graph head-pred)
+           (digraph:insert-vertex graph body-pred)
+           (digraph:insert-edge graph head-pred body-pred))
+         (mark-dependencies (head body)
+           (iterate (for b :in body)
+                    (when (or (negationp b)
+                              (not negations-only))
+                      (mark-dependency head b)))))
+      (iterate (for rule :in rules)
+               (for (head . body) = (ensure-list rule))
+               (mark-dependencies head body)))
+    graph))
 
-      )))
+
+;;;; Layer Partitioning -------------------------------------------------------
+(defun mark (layers layer term)
+  (setf (gethash term layers) layer)
+  (pushnew term (gethash layer layers) :test #'equal))
 
 
+(defun extract-simple (predicates layer layers terms)
+  (iterate (for term :in terms)
+           (if (member (car term) predicates)
+             (mark layers layer term)
+             (collect term))))
 
+
+(defun extract-base (layers terms)
+  (extract-simple '(true) :base layers terms))
+
+(defun extract-does (layers terms)
+  (extract-simple '(does) :does layers terms))
+
+
+(defun extract-possible% (layers dependencies terms)
+  (labels ((find-dependencies (term)
+             (mapcar (rcurry #'gethash layers)
+                     (digraph:successors dependencies term)))
+           (find-eligible (terms)
+             (iterate (for term :in terms)
+                      (for deps = (find-dependencies term))
+                      (for unmet = (set-difference deps '(:base :possible)))
+                      (when (null unmet)
+                        (collect term)))))
+    (iterate
+      (with remaining = terms)
+      (for next = (find-eligible remaining))
+      (while next)
+      (mapcar (curry #'mark layers :possible) next)
+      (zapf remaining (set-difference % next :test #'equal))
+      (finally (return remaining)))))
+
+(defun extract-possible (layers dependencies terms)
+  (-<> terms
+    (extract-simple '(legal goal terminal) :possible layers <>)
+    (extract-possible% layers dependencies <>)))
+
+
+(defun extract-happens (layers terms)
+  (mapcar (curry #'mark layers :happens) terms)
+  nil)
+
+
+(defun partition-predicates (rules)
+  (let* ((rules (normalize-rules rules))
+         (dependencies (build-dependency-graph rules))
+         (terms (-<> rules
+                  (mapcan #'identity <>)
+                  (mapcar #'bare-term <>)))
+         (layers (make-hash-table :test #'equal)))
+    (-<> terms
+      (extract-base layers <>)
+      (extract-does layers <>)
+      (extract-possible layers dependencies <>)
+      (extract-happens layers <>))
+    layers))
+
+
+;;;; Intra-Layer Ordering -----------------------------------------------------
 (defun build-layer-graph (rules)
   (let ((graph (digraph:make-digraph :test #'equal
                                      :initial-vertices (mapcar #'first rules))))
@@ -88,23 +141,38 @@
                      (digraph:insert-edge graph head dependency))))))
     graph))
 
+
 (defun order-rules (rules)
-  (-<> rules
+  (-> rules
     build-layer-graph
-    (digraph::map-topological #'identity <>)))
+    digraph:topological-sort))
 
 
+;;;; Scratch ------------------------------------------------------------------
+; (defparameter *g*
+;   (build-layer-graph (list
+;                        '((t foo) a)
+;                        '((t bar) a (not (t foo)))
+;                        '((t baz) a (not (t bar)))
+;                        '((t dogs) a x)
+;                        '((t cats) a (not (t dogs)))
+;                        )))
 
-(defparameter *g*
-  (build-layer-graph (list
-                       '((t foo) a)
-                       '((t bar) a (not (t foo)))
-                       '((t baz) a (not (t bar)))
-                       '((t dogs) a x)
-                       '((t cats) a (not (t dogs)))
-                       )))
+; (order-rules (list
+;                '((t foo) a)
+;                '((t bar) a (not (t foo)))
+;                '((t baz) a (not (t bar)))))
 
-(order-rules (list
-               '((t foo) a)
-               '((t bar) a (not (t foo)))
-               '((t baz) a (not (t bar)))))
+(-<> '(
+       ((foo x) (true 1))
+       (cats (foo x))
+       (dogs (not cats))
+       ((bar x) (true 2) (does q))
+       (mice (bar x))
+       ((legal x) (true 3))
+       )
+  partition-predicates
+  ; print-hash-table
+  )
+
+(print-hash-table *)
