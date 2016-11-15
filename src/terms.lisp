@@ -26,22 +26,30 @@
 
 ;;;; Utils --------------------------------------------------------------------
 (defun-match bare-term (term)
-  (`(not ,x) x)
+  (`(ggp-rules::not ,x) x)
   (x x))
 
 (defun-match negationp (term)
-  (`(not ,_) t)
+  (`(ggp-rules::not ,_) t)
   (_ nil))
 
 
 (defun-match normalize-term (term)
-  (`(not ,body) `(not ,(normalize-term body)))
+  (`(ggp-rules::not ,body) `(ggp-rules::not ,(normalize-term body)))
   (`(,_) term)
   (`(,head ,@body) (cons head (mapcar #'normalize-term body)))
   (sym `(,sym)))
 
-(defun normalize-rule (rule)
-  (mapcar #'normalize-term (ensure-list rule)))
+(defun-match normalize-term (term)
+  (`(ggp-rules::not ,body) `(ggp-rules::not ,(normalize-term body)))
+  (`(,constant) constant)
+  (`(,head ,@body) (cons head (mapcar #'normalize-term body)))
+  (`,constant constant))
+
+(defun-match normalize-rule (rule)
+  (`(ggp-rules::<= ,head ,@body) `(,(normalize-term head)
+                                   ,@(mapcar #'normalize-term body)))
+  (fact `(,(normalize-term fact))))
 
 (defun normalize-rules (rules)
   (mapcar #'normalize-rule rules))
@@ -74,16 +82,24 @@
 
 (defun extract-simple (predicates layer layers terms)
   (iterate (for term :in terms)
-           (if (member (car term) predicates)
+           (if (member (car (ensure-list term)) predicates)
              (mark layers layer term)
              (collect term))))
 
 
 (defun extract-base (layers terms)
-  (extract-simple '(true) :base layers terms))
+  (let ((terms (extract-simple '(ggp-rules::true
+                                 ggp-rules::role)
+                               :base layers terms)))
+    (iterate (for term :in terms)
+             (match term
+               (`(ggp-rules::init ,contents)
+                (mark layers :base `(ggp-rules::true ,contents))
+                (mark layers :base term))
+               (_ (collect term))))))
 
 (defun extract-does (layers terms)
-  (extract-simple '(does) :does layers terms))
+  (extract-simple '(ggp-rules::does) :does layers terms))
 
 
 (defun extract-possible% (layers dependencies terms)
@@ -106,11 +122,19 @@
 
 (defun extract-possible (layers dependencies terms)
   (-<> terms
-    (extract-simple '(legal goal terminal) :possible layers <>)
+    (extract-simple '(ggp-rules::legal
+                      ggp-rules::goal
+                      ggp-rules::terminal)
+                    :possible layers <>)
     (extract-possible% layers dependencies <>)))
 
 
-(defun extract-happens (layers terms)
+(defun extract-early-happens (layers terms)
+  (extract-simple '(ggp-rules::sees
+                    ggp-rules::next)
+                  :happens layers terms))
+
+(defun extract-final-happens (layers terms)
   (mapcar (curry #'mark layers :happens) terms)
   nil)
 
@@ -118,13 +142,15 @@
 (defun partition-rules (dependencies rules)
   (let* ((terms (-<> rules
                   flatten-once
-                  (mapcar #'bare-term <>)))
+                  (mapcar #'bare-term <>)
+                  (remove-duplicates <> :test #'equal)))
          (layers (make-hash-table :test #'equal)))
     (-<> terms
       (extract-base layers <>)
       (extract-does layers <>)
+      (extract-early-happens layers <>) ; ugh
       (extract-possible layers dependencies <>)
-      (extract-happens layers <>))
+      (extract-final-happens layers <>))
     layers))
 
 
@@ -141,27 +167,63 @@
     ;; todo: fix the roots/cycles issue in cl-digraph
     (digraph:topological-sort layer)))
 
-(defun order-rules (rules)
-  (let* ((rules (normalize-rules rules))
-         (dependencies (build-dependency-graph rules))
+(defun order-predicates (rules)
+  (let* ((dependencies (build-dependency-graph rules))
          (negation-dependencies (build-dependency-graph rules :negations-only t))
          (layers (partition-rules dependencies rules)))
     (let ((base (gethash :base layers))
           (does (gethash :does layers))
           (possible (sort-layer negation-dependencies (gethash :possible layers)))
           (happens (sort-layer negation-dependencies (gethash :happens layers))))
-      (pr :base base)
-      (pr :does does)
-      (pr :possible possible)
-      (pr :happens happens)
-      (append base possible does happens))))
+      ; (pr :base)
+      ; (pr base)
+      ; (terpri)
+      ; (pr :does)
+      ; (pr does)
+      ; (terpri)
+      ; (pr :possible)
+      ; (pr possible)
+      ; (terpri)
+      ; (pr :happens)
+      ; (pr happens)
+      ; (terpri)
+      (values (append base possible does happens)
+              layers))))
+
+
+;;;; API ----------------------------------------------------------------------
+(defun integerize-term (term->number term)
+  (match term
+    (`(ggp-rules::not ,body)
+     `(ggp-rules::not ,(gethash body term->number)))
+    (_ (gethash term term->number))))
+
+(defun integerize-rule (term->number rule)
+  (mapcar (curry #'integerize-term term->number) rule))
+
+(defun integerize-rules (rules)
+  (let ((rules (normalize-rules rules))
+        (term->number (make-hash-table :test #'equal))
+        (number->term (make-hash-table))
+        (rule-layers (make-hash-table)))
+    (multiple-value-bind (terms layers)
+        (order-predicates rules)
+      (iterate (for i :from 0)
+               (for term :in terms)
+               (setf (gethash i number->term) term
+                     (gethash term term->number) i))
+      (iterate (for rule :in rules)
+               (for head = (first rule))
+               (for layer = (gethash head layers))
+               (push (integerize-rule term->number rule)
+                     (gethash layer rule-layers))))
+    (list term->number number->term rule-layers)))
 
 
 ;;;; Scratch ------------------------------------------------------------------
 
-(order-rules '(
-               (foo (true something))
-               (bar (true (something))
-                    (does x)
-                    )
-               ))
+(-<> scully.zdd::*rules*
+  (integerize-rules <>)
+  ; (never <>)
+  ; (map nil #'print-hash-table <>)
+  )

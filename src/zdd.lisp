@@ -45,6 +45,7 @@
 (defparameter *draw-unique-sinks* nil)
 (defparameter *draw-unique-nodes* nil)
 (defparameter *draw-hex-p* #'never)
+(defparameter *draw-label-fn* #'identity)
 
 (defun attrs (object &rest attributes)
   (make-instance 'cl-dot:attributed
@@ -64,10 +65,10 @@
 (defmethod cl-dot:graph-object-node ((graph (eql 'zdd)) (object node))
   (make-instance 'cl-dot:node
     :attributes (ematch object
-                  ((node v) `(:label ,v
+                  ((node v) `(:label ,(funcall *draw-label-fn* v)
                               :shape ,(if (funcall *draw-hex-p* v)
                                         :hexagon
-                                        :circle))))))
+                                        :rectangle))))))
 
 (defmethod cl-dot:graph-object-node ((graph (eql 'zdd)) (object cons))
   (cl-dot:graph-object-node graph (car object)))
@@ -98,10 +99,12 @@
              (filename "zdd.png")
              (unique-sinks nil)
              (unique-nodes t)
-             (hexp #'never))
+             (hexp #'never)
+             (label-fn #'identity))
   (let ((*draw-unique-sinks* unique-sinks)
         (*draw-unique-nodes* unique-nodes)
-        (*draw-hex-p* hexp))
+        (*draw-hex-p* hexp)
+        (*draw-label-fn* label-fn))
     (cl-dot:dot-graph
       (cl-dot:generate-graph-from-roots 'zdd (list (wrap-node zdd)))
       filename
@@ -422,7 +425,7 @@
 
 
 (defun negationp (term)
-  (and (consp term) (eql 'not (first term))))
+  (and (consp term) (eql 'ggp-rules::not (first term))))
 
 (defun bare-term (term)
   (if (negationp term)
@@ -453,7 +456,7 @@
         ((rule-requires (rule)
            (equal (rule-first-body rule) element))
          (rule-disallows (rule)
-           (equal (rule-first-body rule) `(not ,element)))
+           (equal (rule-first-body rule) `(ggp-rules::not ,element)))
          (rule-ignores (rule)
            (not (or (rule-requires rule)
                     (rule-disallows rule)))))
@@ -519,7 +522,7 @@
 (defun make-rule-tree (rules)
   "Create a rule tree ZDD from the given logical `rules`.
 
-  `rules` should be a list of rules, each of the form:
+  `rules` should be a list of one layer-worth of rules, each of the form:
   `(head-term &rest body-terms)`
 
   Each head term should be a single variable.
@@ -533,8 +536,8 @@
     (let* ((heads (-<> rules
                     (remove-if-not #'rule-empty-p <>)
                     (mapcar #'rule-head <>)
-                    (remove-duplicates <> :test #'equal)
-                    (union accumulated-heads <> :test #'equal))) ; slow
+                    (remove-duplicates <> :test #'=)
+                    (union accumulated-heads <> :test #'=))) ; slow
            (next-rules (remove-if
                          (lambda (rule)
                            (member (rule-head rule) heads :test #'equal))
@@ -543,9 +546,18 @@
         (zdd-set heads)
         (multiple-value-bind (term low high both)
             (partition-rules next-rules)
-            (zdd-node term
-                (recur (append (mapcar #'drop-first high) both) heads)
-                (recur (append (mapcar #'drop-first low) both) heads)))))))
+          ; (pr :rules rules)
+          ; (pr :acch accumulated-heads)
+          ; (pr :heads heads)
+          ; (pr :next-rules next-rules)
+          ; (pr :term term)
+          ; (pr :low low)
+          ; (pr :high high)
+          ; (pr :both both)
+          ; (break)
+          (zdd-node term
+                    (recur (append (mapcar #'drop-first high) both) heads)
+                    (recur (append (mapcar #'drop-first low) both) heads)))))))
 
 
 (defun apply-rule-tree (zdd rule-tree head-bound)
@@ -589,38 +601,18 @@
 
 
 ;;;; Scratch ------------------------------------------------------------------
-(defun test (l)
-  (fixed-point #'collapse-positive-heads
-               (list (set-insert (empty-set)
-                                 '(100 1 2)
-                                 '(1001 100 200)
-                                 '(2000 1 (not 1001))
-                                 '(3000 1 (not 100))
-                                 '(1 10)
-                                 '(2 30 1))
-                     (set-insert (empty-set :test #'eql)
-                                 '10 '20 '30))
-               :limit l
-               :test (lambda (old new)
-                       (and (hash-set= (first old)
-                                       (first new))
-                            (hash-set= (second old)
-                                       (second new))))))
+(destructuring-bind (term->number number->term layers)
+    (scully.terms::integerize-rules *rules*)
+  ; (print-hash-table layers)
+  (with-zdd
+    (-<> (gethash :happens layers)
+      ; (mapprint-through #'pr <>)
+      (make-rule-tree <>)
+      ; (draw <> :unique-sinks nil :unique-nodes t
+      ;       :label-fn (lambda (n)
+      ;                   (aesthetic-string (gethash n number->term))))
+      ; (print-through #'zdd-size <>)
+      (never <>))))
 
-
-;;;; TODO
-;;
-;; * Implement head fixed-point thing for rule trees
-;;   * Positive head fixed-pointing
-;;   * Negative head fixed-pointing
-;; * Fact edge case addition
-;;   * all (next ...) and (init ...) should have (true ...) equivalents
-;;   * all (legal ...) should have (does ...) equivalents
-;; * Ordering for facts
-;;   * Base < Does < Possible <        Happens
-;;     true   does   legal/term/goal   sees/next
-;; * Poster
-;;   * Monty Hall
-;;     * Pictures
-;;     * Fact sets
-;;   * ZDDs
+(start-profiling '(scully.zdd))
+(stop-profiling)
