@@ -5,3 +5,4 @@ scratch.lisp
 tree.png
 build
 *.png
+lisp.prof
