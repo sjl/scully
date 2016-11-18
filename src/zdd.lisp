@@ -601,18 +601,19 @@
 
 
 ;;;; Scratch ------------------------------------------------------------------
-(destructuring-bind (term->number number->term layers)
-    (scully.terms::integerize-rules *rules*)
-  ; (print-hash-table layers)
-  (with-zdd
-    (-<> (gethash :happens layers)
-      ; (mapprint-through #'pr <>)
-      (make-rule-tree <>)
-      ; (draw <> :unique-sinks nil :unique-nodes t
-      ;       :label-fn (lambda (n)
-      ;                   (aesthetic-string (gethash n number->term))))
-      ; (print-through #'zdd-size <>)
-      (never <>))))
 
-(start-profiling '(scully.zdd))
-(stop-profiling)
+; (destructuring-bind (term->number number->term layers)
+;     (scully.terms::integerize-rules *rules*)
+;   ; (print-hash-table layers)
+;   (with-zdd
+;     (-<> (gethash :happens layers)
+;       ; (mapprint-through #'pr <>)
+;       (make-rule-tree <>)
+;       ; (draw <> :unique-sinks nil :unique-nodes t
+;       ;       :label-fn (lambda (n)
+;       ;                   (aesthetic-string (gethash n number->term))))
+;       ; (print-through #'zdd-size <>)
+;       (never <>))))
+
+; (start-profiling '(scully.zdd))
+; (stop-profiling)

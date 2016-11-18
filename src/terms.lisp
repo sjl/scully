@@ -222,7 +222,7 @@
 
 ;;;; Scratch ------------------------------------------------------------------
 
-(-<> scully.zdd::*rules*
+#+no (-<> scully.zdd::*rules*
   (integerize-rules <>)
   ; (never <>)
   ; (map nil #'print-hash-table <>)

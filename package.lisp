@@ -34,6 +34,17 @@
     :scully.quickutils)
   (:export))
 
+(defpackage :scully.rule-trees
+  (:use
+    :cl
+    :losh
+    :iterate
+    :cl-arrows
+    :trivia
+    :named-readtables
+    :scully.quickutils)
+  (:export))
+
 (defpackage :scully.terms
   (:use
     :cl
