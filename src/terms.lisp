@@ -70,6 +70,7 @@
                       (mark-dependency head (bare-term b))))))
       (iterate (for rule :in rules)
                (for (head . body) = (ensure-list rule))
+               (digraph:insert-vertex graph head)
                (mark-dependencies head body)))
     graph))
 
@@ -191,6 +192,28 @@
               layers))))
 
 
+;;;; Stratification -----------------------------------------------------------
+(defun stratify-layer (rules)
+  (iterate
+    (with dependencies = (build-dependency-graph rules :negations-only t))
+    (with remaining = rules)
+    (until (null remaining))
+
+    (for next-heads = (digraph:leafs dependencies))
+    (when (null next-heads)
+      (error "Cycle in negations detected!"))
+
+    (for stratum = (remove-if-not (lambda (rule)
+                                    (member (first rule) next-heads))
+                                  remaining))
+    (collect stratum)
+    ;; TODO: do we want the full rules or just the heads here?
+    ; (collect next-heads)
+
+    (setf remaining (set-difference remaining stratum))
+    (mapc (curry #'digraph:remove-vertex dependencies) next-heads)))
+
+
 ;;;; API ----------------------------------------------------------------------
 (defun integerize-term (term->number term)
   (match term
@@ -222,8 +245,19 @@
 
 ;;;; Scratch ------------------------------------------------------------------
 
-#+no (-<> scully.zdd::*rules*
+(-<> '(
+       (ggp-rules::<= a (ggp-rules::true foo))
+       (ggp-rules::<= b (ggp-rules::true foo) (ggp-rules::true baz))
+       (ggp-rules::<= c (ggp-rules::true dogs) (ggp-rules::not a))
+       (ggp-rules::<= x (ggp-rules::not a) b)
+       (ggp-rules::<= y (ggp-rules::not a) (ggp-rules::not x))
+       (ggp-rules::<= y (ggp-rules::not c))
+       )
   (integerize-rules <>)
-  ; (never <>)
+  (nth 2 <>)
+  (gethash :possible <>)
+  (stratify-layer <>)
+  (mapc (lambda (s) (format t "Stratum:~%~{    ~S~%~}" s)) <>)
+  (never <>)
   ; (map nil #'print-hash-table <>)
   )
