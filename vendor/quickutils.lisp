@@ -2,7 +2,7 @@
 ;;;; See http://quickutil.org for details.
 
 ;;;; To regenerate:
-;;;; (qtlc:save-utils-as "quickutils.lisp" :utilities '(:COMPOSE :COPY-HASH-TABLE :CURRY :ENSURE-BOOLEAN :ENSURE-GETHASH :ENSURE-LIST :FLATTEN-ONCE :HASH-TABLE-KEYS :MAP-PRODUCT :MKSTR :ONCE-ONLY :RCURRY :SET-EQUAL :WITH-GENSYMS :WITH-OUTPUT-TO-FILE) :ensure-package T :package "SCULLY.QUICKUTILS")
+;;;; (qtlc:save-utils-as "quickutils.lisp" :utilities '(:COMPOSE :COPY-HASH-TABLE :CURRY :ENSURE-BOOLEAN :ENSURE-GETHASH :ENSURE-LIST :FLATTEN-ONCE :HASH-TABLE-KEYS :HASH-TABLE-VALUES :MAP-PRODUCT :MKSTR :ONCE-ONLY :RCURRY :SET-EQUAL :WITH-GENSYMS :WITH-OUTPUT-TO-FILE) :ensure-package T :package "SCULLY.QUICKUTILS")
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (unless (find-package "SCULLY.QUICKUTILS")
@@ -18,6 +18,7 @@
                                          :ENSURE-BOOLEAN :ENSURE-GETHASH
                                          :ENSURE-LIST :FLATTEN-ONCE
                                          :MAPHASH-KEYS :HASH-TABLE-KEYS
+                                         :MAPHASH-VALUES :HASH-TABLE-VALUES
                                          :MAPPEND :MAP-PRODUCT :MKSTR
                                          :ONCE-ONLY :RCURRY :SET-EQUAL
                                          :STRING-DESIGNATOR :WITH-GENSYMS
@@ -165,6 +166,24 @@ already in the table."
                       (push k keys))
                     table)
       keys))
+  
+
+  (declaim (inline maphash-values))
+  (defun maphash-values (function table)
+    "Like `maphash`, but calls `function` with each value in the hash table `table`."
+    (maphash (lambda (k v)
+               (declare (ignore k))
+               (funcall function v))
+             table))
+  
+
+  (defun hash-table-values (table)
+    "Returns a list containing the values of hash table `table`."
+    (let ((values nil))
+      (maphash-values (lambda (v)
+                        (push v values))
+                      table)
+      values))
   
 
   (defun mappend (function &rest lists)
@@ -346,8 +365,8 @@ which is only sent to `with-open-file` when it's not `nil`."
   
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (export '(compose copy-hash-table curry ensure-boolean ensure-gethash
-            ensure-list flatten-once hash-table-keys map-product mkstr
-            once-only rcurry set-equal with-gensyms with-unique-names
-            with-output-to-file)))
+            ensure-list flatten-once hash-table-keys hash-table-values
+            map-product mkstr once-only rcurry set-equal with-gensyms
+            with-unique-names with-output-to-file)))
 
 ;;;; END OF quickutils.lisp ;;;;

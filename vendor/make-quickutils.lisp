@@ -12,6 +12,7 @@
                :ensure-list
                :flatten-once
                :hash-table-keys
+               :hash-table-values
                :map-product
                :mkstr
                :once-only

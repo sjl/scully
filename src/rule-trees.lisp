@@ -76,4 +76,4 @@
                        (500 19 17)
                        ))
 
-(-<> *rule* make-rule-tree scully.graphviz::draw-rule-tree)
+; (-<> *rule* make-rule-tree scully.graphviz::draw-rule-tree)

@@ -37,6 +37,7 @@
                              (:file "rule-trees")
                              (:file "zdd")
                              (:file "graphviz")
+                             (:file "logic")
                              (:module "reasoners" :serial t
                               :components ((:file "prolog")))
                              (:module "grounders" :serial t

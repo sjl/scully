@@ -66,6 +66,14 @@
     :scully.quickutils)
   (:export))
 
+(defpackage :scully.logic
+  (:use
+    :cl
+    :losh
+    :iterate
+    :cl-arrows
+    :scully.quickutils))
+
 (defpackage :scully.reasoners.prolog
   (:use
     :cl

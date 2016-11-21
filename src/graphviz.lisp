@@ -10,20 +10,22 @@
 
 
 ;;;; Rule Trees ---------------------------------------------------------------
+(defparameter *rt-label-fn* #'identity)
+
 (defmethod cl-dot:graph-object-node ((graph (eql 'rule-tree))
                                      (object scully.rule-trees::rule-tree))
   (make-instance 'cl-dot:node
     :attributes (adt:match scully.rule-trees::rule-tree object
                   ((scully.rule-trees::node term _ _)
-                   `(:label ,(aesthetic-string term)
-                     :shape :circle))
+                   `(:label ,(aesthetic-string (funcall *rt-label-fn* term))
+                     :shape :ellipse))
 
                   (scully.rule-trees::bottom
                     `(:label "⊥"
                       :shape :square))
 
                   ((scully.rule-trees::top term)
-                   `(:label ,(aesthetic-string term)
+                   `(:label ,(aesthetic-string (funcall *rt-label-fn* term))
                      :shape :rectangle)))))
 
 (defmethod cl-dot:graph-object-points-to ((graph (eql 'rule-tree))
@@ -35,11 +37,14 @@
     (scully.rule-trees::bottom nil)))
 
 
-(defun draw-rule-tree (rule-tree &key (filename "rule-tree.png"))
-  (cl-dot:dot-graph
-    (cl-dot:generate-graph-from-roots 'rule-tree (list rule-tree))
-    filename
-    :format :png)
+(defun draw-rule-tree (rule-tree &key
+                       (filename "rule-tree.png")
+                       (label-fn #'identity))
+  (let ((*rt-label-fn* label-fn))
+    (cl-dot:dot-graph
+      (cl-dot:generate-graph-from-roots 'rule-tree (list rule-tree))
+      filename
+      :format :png))
   rule-tree)
 
 

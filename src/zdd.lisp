@@ -392,6 +392,3 @@
 ;       ;                   (aesthetic-string (gethash n number->term))))
 ;       ; (print-through #'zdd-size <>)
 ;       (never <>))))
-
-; (start-profiling '(scully.zdd))
-; (stop-profiling)

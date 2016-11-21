@@ -56,17 +56,16 @@
 
 
 ;;;; Dependency Graph ---------------------------------------------------------
-(defun build-dependency-graph (rules &key negations-only)
+(defun build-dependency-graph (rules &key includep)
   (let ((graph (digraph:make-digraph :test #'equal)))
     (labels
         ((mark-dependency (head dep)
-           (digraph:insert-vertex graph head)
            (digraph:insert-vertex graph dep)
            (digraph:insert-edge graph head dep))
          (mark-dependencies (head body)
            (iterate (for b :in body)
-                    (when (or (negationp b)
-                              (not negations-only))
+                    (when (or (null includep)
+                              (funcall includep b))
                       (mark-dependency head (bare-term b))))))
       (iterate (for rule :in rules)
                (for (head . body) = (ensure-list rule))
@@ -170,7 +169,8 @@
 
 (defun order-predicates (rules)
   (let* ((dependencies (build-dependency-graph rules))
-         (negation-dependencies (build-dependency-graph rules :negations-only t))
+         (negation-dependencies (build-dependency-graph rules
+                                                        :includep #'negationp))
          (layers (partition-rules dependencies rules)))
     (let ((base (gethash :base layers))
           (does (gethash :does layers))
@@ -193,9 +193,18 @@
 
 
 ;;;; Stratification -----------------------------------------------------------
+(defun build-single-layer-dependency-graph (rules)
+  (let* ((layer-heads (remove-duplicates (mapcar #'first rules))))
+    (build-dependency-graph
+      rules
+      :includep (lambda (b)
+                  (and (negationp b)
+                       (member (bare-term b) layer-heads))))))
+
 (defun stratify-layer (rules)
   (iterate
-    (with dependencies = (build-dependency-graph rules :negations-only t))
+    (with dependencies = (build-single-layer-dependency-graph rules))
+    ; (initially (digraph.dot:draw dependencies))
     (with remaining = rules)
     (until (null remaining))
 
