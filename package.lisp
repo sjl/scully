@@ -12,6 +12,16 @@
     :redump-gdl))
 
 
+(defpackage :scully.graphviz
+  (:use
+    :cl
+    :losh
+    :iterate
+    :cl-arrows
+    :trivia
+    :trivialib.bdd
+    :scully.quickutils))
+
 (defpackage :scully.dag
   (:use
     :cl

@@ -68,50 +68,12 @@
                         (recur (append (mapcar #'rest disallows) ignores)))))))))
 
 
-;;;; GraphViz -----------------------------------------------------------------
-(setf cl-dot:*dot-path* "/usr/local/bin/dot")
-
-(defun attrs (object &rest attributes)
-  (make-instance 'cl-dot:attributed
-    :object object
-    :attributes attributes))
-
-
-(defmethod cl-dot:graph-object-node ((graph (eql 'rule-tree)) (object rule-tree))
-  (make-instance 'cl-dot:node
-    :attributes (adt:match rule-tree object
-                  ((node term _ _) `(:label ,(aesthetic-string term)
-                                     :shape :circle))
-
-                  (bottom `(:label "⊥"
-                            :shape :square))
-
-                  ((top term) `(:label ,(aesthetic-string term)
-                                :shape :rectangle)))))
-
-(defmethod cl-dot:graph-object-points-to ((graph (eql 'rule-tree))
-                                          (object rule-tree))
-  (adt:match rule-tree object
-    ((node _ hi lo) (list (attrs hi :style :solid)
-                          (attrs lo :style :dashed)))
-    ((top _) nil)
-    (bottom nil)))
-
-
-(defun draw (rule-tree &key (filename "rule-tree.png"))
-  (cl-dot:dot-graph
-    (cl-dot:generate-graph-from-roots 'rule-tree (list rule-tree))
-    filename
-    :format :png)
-  rule-tree)
-
-
 ;;;; Scratch ------------------------------------------------------------------
 (defparameter *rule* '(
-                       (1000 1 2 (ggp-rules::not 3))
-                       (1000 4 2 3 15)
-                       (1000 (ggp-rules::not 19) 18)
-                       (1000 19 17)
+                       (500 1 2 (ggp-rules::not 3))
+                       (500 4 2 3 15)
+                       (500 (ggp-rules::not 19) 18)
+                       (500 19 17)
                        ))
 
-(-<> *rule* make-rule-tree draw)
+(-<> *rule* make-rule-tree scully.graphviz::draw-rule-tree)
