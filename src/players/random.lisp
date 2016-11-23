@@ -14,7 +14,7 @@
 (defmethod ggp:player-start-game ((player random-player) rules role timeout)
   (let ((reasoner (make-prolog-reasoner)))
     (load-rules reasoner (-> rules
-                           scully.gdl:redump-gdl
+                           scully.gdl:dump-gdl
                            scully.grounders.fluxplayer:ground-gdl-string))
     (setf (rp-role player) role
           (rp-reasoner player) reasoner

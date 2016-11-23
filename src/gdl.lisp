@@ -1,6 +1,15 @@
 (in-package :scully.gdl)
 
+(defvar *ggp-gensym-counter* 0)
+
+(defun gensym-ggp ()
+  "Return a unique symbol in the `ggp-rules` package."
+  (values (intern (mkstr 'rule- (incf *ggp-gensym-counter*))
+                  (find-package :ggp-rules))))
+
+
 (defun read-gdl (filename)
+  "Read GDL from the given file"
   (let ((*package* (find-package :ggp-rules)))
     (with-open-file (stream filename)
       (loop
@@ -18,6 +27,6 @@
               (invoke-fact database rule)))
           rules)))
 
-(defun redump-gdl (rules)
+(defun dump-gdl (rules)
   (let ((*package* (find-package :ggp-rules)))
     (format nil "~(~{~S~%~}~)" rules)))

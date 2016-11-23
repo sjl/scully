@@ -20,6 +20,7 @@
                :set-equal
                :with-gensyms
                :with-output-to-file
+               :write-string-into-file
 
                )
   :package "SCULLY.QUICKUTILS")

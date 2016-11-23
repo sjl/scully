@@ -7,9 +7,10 @@
     :temperance
     :scully.quickutils)
   (:export
+    :gensym-ggp
     :read-gdl
     :load-rules
-    :redump-gdl))
+    :dump-gdl))
 
 
 (defpackage :scully.graphviz

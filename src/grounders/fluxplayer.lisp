@@ -104,7 +104,7 @@
              (setf (gethash (index-entry-id entry) index)
                    (index-entry-term entry)))
     (flet ((get-rule (id)
-             (ensure-gethash id index (gensym))))
+             (ensure-gethash id index (scully.gdl:gensym-ggp))))
       (iterate
         (for entry :in rule-entries)
         (for rule = (get-rule (rule-id entry)))
@@ -139,17 +139,15 @@
 
 
 (defun dump-grounded (filename)
-  (with-output-to-file (*standard-output*
-                         (mkstr "gdl/" filename "-grounded.gdl")
-                         :if-exists :supersede)
-    (let ((*package* (find-package :ggp-rules)))
-      (map nil #'print (ground-gdl-file (mkstr "gdl/" filename ".gdl"))))))
+  (let ((grounded (ground-gdl-file (mkstr "gdl/" filename ".gdl"))))
+    (write-string-into-file (scully.gdl:dump-gdl grounded)
+                            (mkstr "gdl/" filename "-grounded.gdl")
+                            :if-exists :supersede))
+  'ok)
 
 
 ; (dump-grounded "buttons")
 ; (dump-grounded "8puzzle")
 ; (dump-grounded "tictactoe")
-; (dump-grounded "roshambo2")
+(dump-grounded "roshambo2")
 ; (dump-grounded "hanoi")
-
-

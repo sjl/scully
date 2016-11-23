@@ -2,7 +2,7 @@
 ;;;; See http://quickutil.org for details.
 
 ;;;; To regenerate:
-;;;; (qtlc:save-utils-as "quickutils.lisp" :utilities '(:COMPOSE :COPY-HASH-TABLE :CURRY :ENSURE-BOOLEAN :ENSURE-GETHASH :ENSURE-LIST :FLATTEN-ONCE :HASH-TABLE-KEYS :HASH-TABLE-VALUES :MAP-PRODUCT :MKSTR :ONCE-ONLY :RCURRY :SET-EQUAL :WITH-GENSYMS :WITH-OUTPUT-TO-FILE) :ensure-package T :package "SCULLY.QUICKUTILS")
+;;;; (qtlc:save-utils-as "quickutils.lisp" :utilities '(:COMPOSE :COPY-HASH-TABLE :CURRY :ENSURE-BOOLEAN :ENSURE-GETHASH :ENSURE-LIST :FLATTEN-ONCE :HASH-TABLE-KEYS :HASH-TABLE-VALUES :MAP-PRODUCT :MKSTR :ONCE-ONLY :RCURRY :SET-EQUAL :WITH-GENSYMS :WITH-OUTPUT-TO-FILE :WRITE-STRING-INTO-FILE) :ensure-package T :package "SCULLY.QUICKUTILS")
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (unless (find-package "SCULLY.QUICKUTILS")
@@ -22,7 +22,8 @@
                                          :MAPPEND :MAP-PRODUCT :MKSTR
                                          :ONCE-ONLY :RCURRY :SET-EQUAL
                                          :STRING-DESIGNATOR :WITH-GENSYMS
-                                         :WITH-OPEN-FILE* :WITH-OUTPUT-TO-FILE))))
+                                         :WITH-OPEN-FILE* :WITH-OUTPUT-TO-FILE
+                                         :WRITE-STRING-INTO-FILE))))
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun make-gensym-list (length &optional (x "G"))
     "Returns a list of `length` gensyms, each generated as if with a call to `make-gensym`,
@@ -363,10 +364,23 @@ which is only sent to `with-open-file` when it's not `nil`."
     `(with-open-file* (,stream-name ,file-name :direction :output ,@args)
        ,@body))
   
+
+  (defun write-string-into-file (string pathname &key (if-exists :error)
+                                                      if-does-not-exist
+                                                      external-format)
+    "Write `string` to `pathname`.
+
+The `external-format` parameter will be passed directly to `with-open-file`
+unless it's `nil`, which means the system default."
+    (with-output-to-file (file-stream pathname :if-exists if-exists
+                                               :if-does-not-exist if-does-not-exist
+                                               :external-format external-format)
+      (write-sequence string file-stream)))
+  
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (export '(compose copy-hash-table curry ensure-boolean ensure-gethash
             ensure-list flatten-once hash-table-keys hash-table-values
             map-product mkstr once-only rcurry set-equal with-gensyms
-            with-unique-names with-output-to-file)))
+            with-unique-names with-output-to-file write-string-into-file)))
 
 ;;;; END OF quickutils.lisp ;;;;

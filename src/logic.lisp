@@ -2,7 +2,11 @@
 
 
 (defparameter *rules*
-  (scully.gdl::read-gdl "gdl/tictactoe-grounded.gdl"))
+  ; (scully.gdl::read-gdl "gdl/tictactoe-grounded.gdl")
+  ; (scully.gdl::read-gdl "gdl/hanoi-grounded.gdl")
+  ; (scully.gdl::read-gdl "gdl/8puzzle-grounded.gdl")
+  (scully.gdl::read-gdl "gdl/roshambo2-grounded.gdl")
+  )
 
 
 (defun make-stratum-rule-trees (stratum)
@@ -12,17 +16,19 @@
     (mapcar #'scully.rule-trees::make-rule-tree <>)))
 
 
-; (setf *print-length* 10000)
-(destructuring-bind (term->number number->term rule-layers)
-    (scully.terms::integerize-rules *rules*)
-  ; (let ((*print-length* 1000))
-  ;   (print-hash-table number->term))
-  ; (print-hash-table rule-layers)
+(setf *print-length* 10
+      *print-depth* 5)
+
+(defun make-rule-forest (rules)
+  (destructuring-bind (term->number number->term rule-layers)
+    (scully.terms::integerize-rules rules)
   (flet ((draw (rt)
            (scully.graphviz::draw-rule-tree
              rt :label-fn (lambda (n)
                             (gethash n number->term)))
-           (break)))
+           (break)
+           ))
+    (print-hash-table rule-layers)
     (-<> rule-layers
       (gethash :possible <>)
       scully.terms::stratify-layer
@@ -40,3 +46,18 @@
       ;            (break))
       ;      <>)
       )))
+  )
+
+(make-rule-forest *rules*)
+
+
+
+
+;;;; PLAN
+;;;
+;;; 1. Receive GDL from server
+;;; 2. Ground it
+;;; 3. Integerize the ground GDL
+;;; 4. Find initial state
+;;; 5. Build rule trees for integerized rules
+;;; 6. ...
