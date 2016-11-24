@@ -10,6 +10,7 @@
                :ensure-boolean
                :ensure-gethash
                :ensure-list
+               :extremum
                :flatten-once
                :hash-table-keys
                :hash-table-values
@@ -21,6 +22,7 @@
                :with-gensyms
                :with-output-to-file
                :write-string-into-file
+               :yes-no
 
                )
   :package "SCULLY.QUICKUTILS")

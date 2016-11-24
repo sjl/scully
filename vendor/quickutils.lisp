@@ -2,7 +2,7 @@
 ;;;; See http://quickutil.org for details.
 
 ;;;; To regenerate:
-;;;; (qtlc:save-utils-as "quickutils.lisp" :utilities '(:COMPOSE :COPY-HASH-TABLE :CURRY :ENSURE-BOOLEAN :ENSURE-GETHASH :ENSURE-LIST :FLATTEN-ONCE :HASH-TABLE-KEYS :HASH-TABLE-VALUES :MAP-PRODUCT :MKSTR :ONCE-ONLY :RCURRY :SET-EQUAL :WITH-GENSYMS :WITH-OUTPUT-TO-FILE :WRITE-STRING-INTO-FILE) :ensure-package T :package "SCULLY.QUICKUTILS")
+;;;; (qtlc:save-utils-as "quickutils.lisp" :utilities '(:COMPOSE :COPY-HASH-TABLE :CURRY :ENSURE-BOOLEAN :ENSURE-GETHASH :ENSURE-LIST :EXTREMUM :FLATTEN-ONCE :HASH-TABLE-KEYS :HASH-TABLE-VALUES :MAP-PRODUCT :MKSTR :ONCE-ONLY :RCURRY :SET-EQUAL :WITH-GENSYMS :WITH-OUTPUT-TO-FILE :WRITE-STRING-INTO-FILE :YES-NO) :ensure-package T :package "SCULLY.QUICKUTILS")
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (unless (find-package "SCULLY.QUICKUTILS")
@@ -16,14 +16,14 @@
   (setf *utilities* (union *utilities* '(:MAKE-GENSYM-LIST :ENSURE-FUNCTION
                                          :COMPOSE :COPY-HASH-TABLE :CURRY
                                          :ENSURE-BOOLEAN :ENSURE-GETHASH
-                                         :ENSURE-LIST :FLATTEN-ONCE
+                                         :ENSURE-LIST :EXTREMUM :FLATTEN-ONCE
                                          :MAPHASH-KEYS :HASH-TABLE-KEYS
                                          :MAPHASH-VALUES :HASH-TABLE-VALUES
                                          :MAPPEND :MAP-PRODUCT :MKSTR
                                          :ONCE-ONLY :RCURRY :SET-EQUAL
                                          :STRING-DESIGNATOR :WITH-GENSYMS
                                          :WITH-OPEN-FILE* :WITH-OUTPUT-TO-FILE
-                                         :WRITE-STRING-INTO-FILE))))
+                                         :WRITE-STRING-INTO-FILE :YES-NO))))
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun make-gensym-list (length &optional (x "G"))
     "Returns a list of `length` gensyms, each generated as if with a call to `make-gensym`,
@@ -140,6 +140,50 @@ already in the table."
     (if (listp list)
         list
         (list list)))
+  
+
+  (defun extremum (sequence predicate &key key (start 0) end)
+    "Returns the element of `sequence` that would appear first if the subsequence
+bounded by `start` and `end` was sorted using `predicate` and `key`.
+
+`extremum` determines the relationship between two elements of `sequence` by using
+the `predicate` function. `predicate` should return true if and only if the first
+argument is strictly less than the second one (in some appropriate sense). Two
+arguments `x` and `y` are considered to be equal if `(funcall predicate x y)`
+and `(funcall predicate y x)` are both false.
+
+The arguments to the `predicate` function are computed from elements of `sequence`
+using the `key` function, if supplied. If `key` is not supplied or is `nil`, the
+sequence element itself is used.
+
+If `sequence` is empty, `nil` is returned."
+    (let* ((pred-fun (ensure-function predicate))
+           (key-fun (unless (or (not key) (eq key 'identity) (eq key #'identity))
+                      (ensure-function key)))
+           (real-end (or end (length sequence))))
+      (cond ((> real-end start)
+             (if key-fun
+                 (flet ((reduce-keys (a b)
+                          (if (funcall pred-fun
+                                       (funcall key-fun a)
+                                       (funcall key-fun b))
+                              a
+                              b)))
+                   (declare (dynamic-extent #'reduce-keys))
+                   (reduce #'reduce-keys sequence :start start :end real-end))
+                 (flet ((reduce-elts (a b)
+                          (if (funcall pred-fun a b)
+                              a
+                              b)))
+                   (declare (dynamic-extent #'reduce-elts))
+                   (reduce #'reduce-elts sequence :start start :end real-end))))
+            ((= real-end start)
+             nil)
+            (t
+             (error "Invalid bounding indexes for sequence of length ~S: ~S ~S, ~S ~S"
+                    (length sequence)
+                    :start start
+                    :end end)))))
   
 
   (defun flatten-once (list)
@@ -377,10 +421,19 @@ unless it's `nil`, which means the system default."
                                                :external-format external-format)
       (write-sequence string file-stream)))
   
+
+  (defun yes (&rest ignored)
+    (declare (ignore ignored))
+    t)
+  
+  (defun no (&rest ignored)
+    (declare (ignore ignored))
+    nil)
+  
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (export '(compose copy-hash-table curry ensure-boolean ensure-gethash
-            ensure-list flatten-once hash-table-keys hash-table-values
+            ensure-list extremum flatten-once hash-table-keys hash-table-values
             map-product mkstr once-only rcurry set-equal with-gensyms
-            with-unique-names with-output-to-file write-string-into-file)))
+            with-unique-names with-output-to-file write-string-into-file yes no)))
 
 ;;;; END OF quickutils.lisp ;;;;

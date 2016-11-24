@@ -1,7 +1,6 @@
 (in-package :scully.terms)
 (in-readtable :fare-quasiquote)
 
-
 ;;;; Overview -----------------------------------------------------------------
 ;;; We start with a set of grounded rules like: ((next bar) x y (true foo)).
 ;;;
@@ -24,65 +23,59 @@
 ;;; relies on the negation of a rule Y, then Y must come before X.
 
 
-;;;; Utils --------------------------------------------------------------------
-(defun-match bare-term (term)
-  (`(ggp-rules::not ,x) x)
-  (x x))
-
-(defun-match negationp (term)
-  (`(ggp-rules::not ,_) t)
-  (_ nil))
-
-
-(defun-match normalize-term (term)
-  (`(ggp-rules::not ,body) `(ggp-rules::not ,(normalize-term body)))
-  (`(,_) term)
-  (`(,head ,@body) (cons head (mapcar #'normalize-term body)))
-  (sym `(,sym)))
-
-(defun-match normalize-term (term)
-  (`(ggp-rules::not ,body) `(ggp-rules::not ,(normalize-term body)))
-  (`(,constant) constant)
-  (`(,head ,@body) (cons head (mapcar #'normalize-term body)))
-  (`,constant constant))
-
-(defun-match normalize-rule (rule)
-  (`(ggp-rules::<= ,head ,@body) `(,(normalize-term head)
-                                   ,@(mapcar #'normalize-term body)))
-  (fact `(,(normalize-term fact))))
-
-(defun normalize-rules (rules)
-  (mapcar #'normalize-rule rules))
-
-
 ;;;; Dependency Graph ---------------------------------------------------------
 (defun build-dependency-graph (rules &key includep)
+  "Build a dependency graph of the given `rules`.
+
+  All rule heads will be included as vertices.
+
+  A head will have a dependency on each of its body terms for which
+  `(funcall includep term)` returns `t`.  If `includep` is `nil` all
+  dependencies will be included.
+
+  Only body terms upon which there is a dependency will be included in the graph
+  -- if a body term is discarded by `includep` there will be no vertex for it.
+
+  "
   (let ((graph (digraph:make-digraph :test #'equal)))
     (labels
         ((mark-dependency (head dep)
            (digraph:insert-vertex graph dep)
            (digraph:insert-edge graph head dep))
          (mark-dependencies (head body)
+           (digraph:insert-vertex graph head)
            (iterate (for b :in body)
                     (when (or (null includep)
                               (funcall includep b))
                       (mark-dependency head (bare-term b))))))
-      (iterate (for rule :in rules)
-               (for (head . body) = (ensure-list rule))
-               (digraph:insert-vertex graph head)
+      (iterate (for (head . body) :in rules)
                (mark-dependencies head body)))
     graph))
 
 
 ;;;; Layer Partitioning -------------------------------------------------------
+;;; We want to partition the terms of the rules into layers.  The result will be
+;;; a hash table containing two types of entries, for convenience:
+;;;
+;;;   term          -> layer keyword
+;;;   layer keyword -> list of terms in the layer
+
 (defun mark (layers layer term)
   (setf (gethash term layers) layer)
   (pushnew term (gethash layer layers) :test #'equal))
 
 
 (defun extract-simple (predicates layer layers terms)
+  "Extract simple terms for a given `layer` from `terms`.
+
+  Extract the terms with predicates in `predicates` and mark them appropriately
+  in the `layers` hash table.
+
+  Returns a list of remaining terms.
+
+  "
   (iterate (for term :in terms)
-           (if (member (car (ensure-list term)) predicates)
+           (if (member (term-predicate term) predicates)
              (mark layers layer term)
              (collect term))))
 
@@ -91,6 +84,8 @@
   (let ((terms (extract-simple '(ggp-rules::true
                                  ggp-rules::role)
                                :base layers terms)))
+    ;; In addition to the simple things, we need to make sure we've got
+    ;; a corresponding `(true *)` term for any `(init *)` term.
     (iterate (for term :in terms)
              (match term
                (`(ggp-rules::init ,contents)
@@ -104,12 +99,14 @@
 
 (defun extract-possible% (layers dependencies terms)
   (labels ((find-dependencies (term)
+             "Return the layers of each of `term`s dependencies."
              (mapcar (rcurry #'gethash layers)
                      (digraph:successors dependencies term)))
            (find-eligible (terms)
+             "Find terms that depend only on things in `:base`/`:possible`."
              (iterate (for term :in terms)
-                      (for deps = (find-dependencies term))
-                      (for unmet = (set-difference deps '(:base :possible)))
+                      (for unmet = (set-difference (find-dependencies term)
+                                                   '(:base :possible)))
                       (when (null unmet)
                         (collect term)))))
     (iterate
@@ -121,6 +118,11 @@
       (finally (return remaining)))))
 
 (defun extract-possible (layers dependencies terms)
+  ;; At this point we've got the :base and :does layers finished.  We then
+  ;; extract the simple things for the :possible layer.
+  ;;
+  ;; Once we've done this, rules that depend on ONLY things in the
+  ;; :base/:possible layers can also be extracted.
   (-<> terms
     (extract-simple '(ggp-rules::legal
                       ggp-rules::goal
@@ -130,11 +132,14 @@
 
 
 (defun extract-early-happens (layers terms)
+  ;; We need to extract these early because we don't want them to get included
+  ;; in the `:possible` layer if they don't depend on anything.
   (extract-simple '(ggp-rules::sees
                     ggp-rules::next)
                   :happens layers terms))
 
 (defun extract-final-happens (layers terms)
+  ;; Everything left at the end must be in the `:happens` layer.
   (mapcar (curry #'mark layers :happens) terms)
   nil)
 
@@ -156,10 +161,15 @@
 
 ;;;; Intra-Layer Ordering -----------------------------------------------------
 (defun sort-layer (negation-dependencies terms)
+  ;; We sort a layer by creating a digraph of only the terms in that layer,
+  ;; adding all negation dependencies between them, and topologically sorting.
   (let ((layer (digraph:make-digraph :test #'equal)))
     (flet ((add-dependencies (term)
              (iterate
                (for dep :in (digraph:successors negation-dependencies term))
+               ;; We only care about dependencies where both the head and body
+               ;; are in THIS layer -- we don't care about a dependency on an
+               ;; earlier layer.
                (when (digraph:contains-vertex-p layer dep)
                  (digraph:insert-edge layer term dep)))))
       (mapc (curry #'digraph:insert-vertex layer) terms)
@@ -167,7 +177,13 @@
     ;; todo: fix the roots/cycles issue in cl-digraph
     (digraph:topological-sort layer)))
 
-(defun order-predicates (rules)
+(defun order-terms (rules)
+  "Find a linear ordering of all terms in `rules`.
+
+  Returns two values: a list of the terms, in order, and the final layer hash
+  table.
+
+  "
   (let* ((dependencies (build-dependency-graph rules))
          (negation-dependencies (build-dependency-graph rules
                                                         :includep #'negationp))
@@ -176,54 +192,12 @@
           (does (gethash :does layers))
           (possible (sort-layer negation-dependencies (gethash :possible layers)))
           (happens (sort-layer negation-dependencies (gethash :happens layers))))
-      ; (pr :base)
-      ; (pr base)
-      ; (terpri)
-      ; (pr :does)
-      ; (pr does)
-      ; (terpri)
-      ; (pr :possible)
-      ; (pr possible)
-      ; (terpri)
-      ; (pr :happens)
-      ; (pr happens)
-      ; (terpri)
+      ;; base < possible < does < happens
       (values (append base possible does happens)
               layers))))
 
 
-;;;; Stratification -----------------------------------------------------------
-(defun build-single-layer-dependency-graph (rules)
-  (let* ((layer-heads (remove-duplicates (mapcar #'first rules))))
-    (build-dependency-graph
-      rules
-      :includep (lambda (b)
-                  (and (negationp b)
-                       (member (bare-term b) layer-heads))))))
-
-(defun stratify-layer (rules)
-  (iterate
-    (with dependencies = (build-single-layer-dependency-graph rules))
-    ; (initially (digraph.dot:draw dependencies))
-    (with remaining = rules)
-    (until (null remaining))
-
-    (for next-heads = (digraph:leafs dependencies))
-    (when (null next-heads)
-      (error "Cycle in negations detected!"))
-
-    (for stratum = (remove-if-not (lambda (rule)
-                                    (member (first rule) next-heads))
-                                  remaining))
-    (collect stratum)
-    ;; TODO: do we want the full rules or just the heads here?
-    ; (collect next-heads)
-
-    (setf remaining (set-difference remaining stratum))
-    (mapc (curry #'digraph:remove-vertex dependencies) next-heads)))
-
-
-;;;; API ----------------------------------------------------------------------
+;;;; Integerization -----------------------------------------------------------
 (defun integerize-term (term->number term)
   (match term
     (`(ggp-rules::not ,body)
@@ -234,39 +208,57 @@
   (mapcar (curry #'integerize-term term->number) rule))
 
 (defun integerize-rules (rules)
-  (let ((rules (normalize-rules rules))
-        (term->number (make-hash-table :test #'equal))
+  "Integerize `rules`.
+
+  `rules` should be a (normalized) list of rules.
+
+  A list of 3 hash tables will be returned:
+
+    (term->number number->term rule-layers)
+
+  "
+  (let ((term->number (make-hash-table :test #'equal))
         (number->term (make-hash-table))
         (rule-layers (make-hash-table)))
     (multiple-value-bind (terms layers)
-        (order-predicates rules)
+        (order-terms rules)
       (iterate (for i :from 0)
                (for term :in terms)
                (setf (gethash i number->term) term
                      (gethash term term->number) i))
       (iterate (for rule :in rules)
-               (for head = (first rule))
-               (for layer = (gethash head layers))
+               (for layer = (gethash (rule-head rule) layers))
                (push (integerize-rule term->number rule)
                      (gethash layer rule-layers))))
     (list term->number number->term rule-layers)))
 
 
-;;;; Scratch ------------------------------------------------------------------
+;;;; Stratification -----------------------------------------------------------
+(defun build-single-layer-dependency-graph (rules)
+  (let* ((layer-heads (remove-duplicates (mapcar #'rule-head rules))))
+    (build-dependency-graph
+      rules
+      :includep (lambda (b)
+                  (and (negationp b)
+                       (member (bare-term b) layer-heads))))))
 
-; (-<> '(
-;        (ggp-rules::<= a (ggp-rules::true foo))
-;        (ggp-rules::<= b (ggp-rules::true foo) (ggp-rules::true baz))
-;        (ggp-rules::<= c (ggp-rules::true dogs) (ggp-rules::not a))
-;        (ggp-rules::<= x (ggp-rules::not a) b)
-;        (ggp-rules::<= y (ggp-rules::not a) (ggp-rules::not x))
-;        (ggp-rules::<= y (ggp-rules::not c))
-;        )
-;   (integerize-rules <>)
-;   (nth 2 <>)
-;   (gethash :possible <>)
-;   (stratify-layer <>)
-;   (mapc (lambda (s) (format t "Stratum:~%~{    ~S~%~}" s)) <>)
-;   ; (never <>)
-;   ; (map nil #'print-hash-table <>)
-;   )
+(defun stratify-layer (rules)
+  "Stratify a single layer of rules into a list of strata."
+  (iterate
+    (with dependencies = (build-single-layer-dependency-graph rules))
+    ; (initially (digraph.dot:draw dependencies))
+    (with remaining = rules)
+    (until (null remaining))
+
+    (for next-heads = (digraph:leafs dependencies))
+    (when (null next-heads)
+      (error "Cycle in negations detected!"))
+
+    (for stratum = (remove-if-not (rcurry #'member next-heads)
+                                  remaining
+                                  :key #'rule-head))
+    (collect stratum)
+
+    (setf remaining (set-difference remaining stratum))
+    (mapc (curry #'digraph:remove-vertex dependencies) next-heads)))
+

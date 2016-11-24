@@ -8,33 +8,34 @@
   bottom)
 
 
-(defun rule-head (rule)
-  (first rule))
-
-(defun rule-body (rule)
-  (rest rule))
-
-(defun-match bare-term (term)
-  (`(ggp-rules::not ,contents) contents)
-  (_ term))
-
-(defun term< (a b)
-  (< (bare-term a) (bare-term b)))
-
-
 (defun find-smallest-body-term (bodies)
-  (-<> bodies
-    (mapcar #'first <>)
-    (sort <> #'term<)
-    (first <>)))
+  "Find the smallest body term in `bodies`.
+
+  Each body in `bodies` must already be sorted.  No body should be empty.
+
+  "
+  (first (extremum bodies #'term< :key #'first)))
 
 (defun partition (bodies)
-  (let ((element (bare-term (find-smallest-body-term bodies))))
+  "Partition `bodies` into exclusive groups based on the smallest element.
+
+  `bodies` must each be already sorted.
+
+  Four values will be returned:
+
+  1. The smallest element in any body.
+  2. All bodies that DISALLOW that element.
+  3. All bodies that REQUIRE that element.
+  4. All bodies that DON'T CARE about that element.
+
+  "
+  (let* ((element (bare-term (find-smallest-body-term bodies)))
+         (negation `(ggp-rules::not ,element)))
     (labels
-        ((requires (body)
+        ((disallows (body)
+           (equal (first body) negation))
+         (requires (body)
            (equal (first body) element))
-         (disallows (body)
-           (equal (first body) `(ggp-rules::not ,element)))
          (ignores (body)
            (not (or (requires body)
                     (disallows body)))))
@@ -50,13 +51,20 @@
     (ensure-gethash (list term hi lo) cache
                     (node term hi lo))))
 
+(defun sort-body (body)
+  (sort body #'term<))
+
 (defun make-rule-tree (rules)
+  "Make a rule tree for `rules`.
+
+  All rules must have the same head (this is not checked).  Bodies do not need
+  to be sorted.
+
+  "
   (let* ((head (rule-head (first rules)))
          (top (top head))
          (cache (make-hash-table :test #'equal)))
-    (recursively ((bodies (-<> rules
-                            (mapcar #'rule-body <>)
-                            (mapcar (rcurry #'sort #'term<) <>))))
+    (recursively ((bodies (mapcar (compose #'sort-body #'rule-body) rules)))
       (cond
         ((null bodies) bottom)
         ((some #'null bodies) top)

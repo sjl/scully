@@ -1,30 +1,6 @@
 (in-package :scully.zdd)
 
 
-;;;; Utils --------------------------------------------------------------------
-(defun gcprint (thing &rest args)
-  (let ((*print-circle* t))
-    (apply #'print
-           (prog1 thing
-                  (tg:gc :full t :verbose t))
-           args)))
-
-(defun never (val)
-  (declare (ignore val))
-  (values))
-
-(defun print-through (function-or-object val)
-  (if (functionp function-or-object)
-    (pr (funcall function-or-object val))
-    (pr function-or-object))
-  val)
-
-(defun mapprint-through (function val)
-  "Calling `function` on each item in `val` and print the result, return `val`."
-  (mapc #'pr (funcall function val))
-  val)
-
-
 ;;;; Bullshit -----------------------------------------------------------------
 ;;; The BDD lib defines a pattern for `node` but not for `leaf`.  It's awkward
 ;;; to have two different syntaxes.  But if we define a pattern for `leaf` and
@@ -337,58 +313,3 @@
   "
   (zdd-match% zdd (sort set #'<) lower-bound upper-bound))
 
-
-(defun apply-rule-tree (zdd rule-tree head-bound)
-  "Apply the logical rules in `rule-tree` to the sets in `zdd`.
-
-  `zdd` is assumed to contain sets of logical axioms.  This function will update
-  each of these sets to add any rule heads derivable from the axioms in the set.
-
-  "
-  (recursively ((zdd zdd)
-                (rule-tree rule-tree))
-    (ematch* (zdd rule-tree)
-      ;; If Z = ∅ there are no sets to cons heads onto, bail.
-      (((sink nil) _) zdd)
-
-      ;; If R = ∅ or {∅} we've bottomed out of the rule tree and there are no
-      ;; heads to cons, we're done.
-      ((_ (sink)) zdd)
-
-      ;; If we've passed the head boundary on the rule tree side then we're done
-      ;; filtering and just need to cons in all the heads.
-      ((_ (guard (node var _ _)
-                 (>= var head-bound)))
-       (zdd-join zdd rule-tree))
-
-      ;; If Z = {∅} we might have some heads we need to cons later in the rule
-      ;; tree, so recur down the lo side of it.
-      (((sink t) (node _ _ lo))
-       (recur zdd lo))
-
-      ;; Otherwise we need to filter.
-      (((node var-z hi-z lo-z) (node var-r hi-r lo-r))
-       (cond
-         ((= var-z var-r) (zdd-node var-z
-                                    (recur hi-z hi-r)
-                                    (recur lo-z lo-r)))
-         ((< var-z var-r) (zdd-node var-z
-                                    (recur hi-z rule-tree)
-                                    (recur lo-z rule-tree)))
-         ((> var-z var-r) (recur zdd lo-r)))))))
-
-
-;;;; Scratch ------------------------------------------------------------------
-
-; (destructuring-bind (term->number number->term layers)
-;     (scully.terms::integerize-rules *rules*)
-;   ; (print-hash-table layers)
-;   (with-zdd
-;     (-<> (gethash :happens layers)
-;       ; (mapprint-through #'pr <>)
-;       (make-rule-tree <>)
-;       ; (draw <> :unique-sinks nil :unique-nodes t
-;       ;       :label-fn (lambda (n)
-;       ;                   (aesthetic-string (gethash n number->term))))
-;       ; (print-through #'zdd-size <>)
-;       (never <>))))

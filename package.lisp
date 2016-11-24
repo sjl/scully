@@ -5,12 +5,23 @@
     :iterate
     :cl-arrows
     :temperance
+    :trivia
+    :named-readtables
     :scully.quickutils)
   (:export
     :gensym-ggp
     :read-gdl
     :load-rules
-    :dump-gdl))
+    :dump-gdl
+    :normalize-rules
+    :bare-term
+    :negationp
+    :term-predicate
+    :term<
+    :rule-head
+    :rule-body
+    :rule-predicate
+    :rule-head=))
 
 
 (defpackage :scully.graphviz
@@ -22,16 +33,6 @@
     :trivia
     :trivialib.bdd
     :scully.quickutils))
-
-(defpackage :scully.dag
-  (:use
-    :cl
-    :losh
-    :iterate
-    :cl-arrows
-    :trivia
-    :scully.quickutils)
-  (:export))
 
 (defpackage :scully.zdd
   (:use
@@ -53,6 +54,7 @@
     :cl-arrows
     :trivia
     :named-readtables
+    :scully.gdl
     :scully.quickutils)
   (:export))
 
@@ -64,8 +66,11 @@
     :cl-arrows
     :trivia
     :named-readtables
+    :scully.gdl
     :scully.quickutils)
-  (:export))
+  (:export
+    :integerize-rules
+    :stratify-layer))
 
 (defpackage :scully.logic
   (:use
@@ -74,6 +79,7 @@
     :iterate
     :cl-arrows
     :scully.quickutils))
+
 
 (defpackage :scully.reasoners.prolog
   (:use

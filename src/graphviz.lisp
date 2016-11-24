@@ -51,7 +51,7 @@
 ;;;; ZDDs ---------------------------------------------------------------------
 (defparameter *draw-unique-sinks* nil)
 (defparameter *draw-unique-nodes* nil)
-(defparameter *draw-hex-p* #'never)
+(defparameter *draw-hex-p* #'no)
 (defparameter *draw-label-fn* #'identity)
 
 
@@ -106,7 +106,7 @@
                  (filename "zdd.png")
                  (unique-sinks nil)
                  (unique-nodes t)
-                 (hexp #'never)
+                 (hexp #'no)
                  (label-fn #'identity))
   (let ((*draw-unique-sinks* unique-sinks)
         (*draw-unique-nodes* unique-nodes)
