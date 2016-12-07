@@ -19,6 +19,8 @@
                :once-only
                :rcurry
                :set-equal
+               :subdivide
+               :symb
                :with-gensyms
                :with-output-to-file
                :write-string-into-file

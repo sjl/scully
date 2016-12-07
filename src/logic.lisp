@@ -2,10 +2,10 @@
 
 
 (defparameter *rules*
-  ; (scully.gdl::read-gdl "gdl/tictactoe-grounded.gdl")
+  (scully.gdl::read-gdl "gdl/tictactoe-grounded.gdl")
   ; (scully.gdl::read-gdl "gdl/hanoi-grounded.gdl")
   ; (scully.gdl::read-gdl "gdl/8puzzle-grounded.gdl")
-  (scully.gdl::read-gdl "gdl/roshambo2-grounded.gdl")
+  ; (scully.gdl::read-gdl "gdl/roshambo2-grounded.gdl")
   )
 
 
@@ -15,38 +15,41 @@
     hash-table-values
     (mapcar #'scully.rule-trees::make-rule-tree <>)))
 
+(defun make-rule-forests (rules)
+  "Turn a set of grounded GDL rules into rule forests and mapping tables.
 
-(setf *print-length* 10
-      *print-depth* 5)
+  A rule forest is a collection of individual rule trees in a single layer,
+  stratified as necessary:
 
-(defun make-rule-forest (rules)
+    POSSIBLE: (STRATUM-1 STRATUM-2 ...)
+    HAPPENS:  (STRATUM-1 STRATUM-2 ...)
+                 ||       ||
+                 ||       \/
+                 ||     (rule-tree-1 rule-tree-2 ...)
+                 \/
+         (rule-tree-1 rule-tree-2 ...)
+
+  Returns a list of:
+
+  * The :possible layer's rule forest.
+  * The :happens layer's rule forest.
+  * The term->number hash table.
+  * The number->term hash table.
+
+  "
   (destructuring-bind (term->number number->term rule-layers)
-    (scully.terms::integerize-rules rules)
-  (flet ((draw (rt)
-           (scully.graphviz::draw-rule-tree
-             rt :label-fn (lambda (n)
-                            (gethash n number->term)))
-           (break)
-           ))
-    (print-hash-table rule-layers)
-    (-<> rule-layers
-      (gethash :possible <>)
-      scully.terms::stratify-layer
-      (nth 0 <>)
-      (make-stratum-rule-trees <>)
-      (map nil #'draw <>)
-      ; (map nil #'pr <>)
-      ; (mapcar (curry #'group-by #'car) <>)
-      ; (map nil #'print-hash-table <>)
-      ; (hash-table-values <>)
-      ; (map nil (lambda (rule)
-      ;            (-<> rule
-      ;              (scully.rule-trees::make-rule-tree <>)
-      ;              )
-      ;            (break))
-      ;      <>)
-      )))
-  )
+      (-> rules
+        scully.gdl::normalize-rules
+        scully.terms::integerize-rules)
+    (flet ((make-forest (layer)
+             (-<> rule-layers
+               (gethash layer <>)
+               scully.terms::stratify-layer
+               (mapcar #'make-stratum-rule-trees <>))))
+      (list (make-forest :possible)
+            (make-forest :happens)
+            term->number
+            number->term))))
 
 ; (make-rule-forest *rules*)
 
