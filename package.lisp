@@ -44,7 +44,9 @@
     :trivia
     :trivialib.bdd
     :scully.quickutils)
-  (:export))
+  (:export)
+  (:shadowing-import-from :hamt
+    :hash-set))
 
 (defpackage :scully.rule-trees
   (:use
@@ -77,6 +79,7 @@
     :cl
     :losh
     :iterate
+    :trivia
     :cl-arrows
     :scully.quickutils))
 

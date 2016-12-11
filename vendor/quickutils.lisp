@@ -2,7 +2,7 @@
 ;;;; See http://quickutil.org for details.
 
 ;;;; To regenerate:
-;;;; (qtlc:save-utils-as "quickutils.lisp" :utilities '(:COMPOSE :COPY-HASH-TABLE :SUBDIVIDE :CURRY :ENSURE-BOOLEAN :ENSURE-GETHASH :ENSURE-LIST :EXTREMUM :FLATTEN-ONCE :HASH-TABLE-KEYS :HASH-TABLE-VALUES :MAP-PRODUCT :MKSTR :ONCE-ONLY :RCURRY :SET-EQUAL :SYMB :WITH-GENSYMS :WITH-OUTPUT-TO-FILE :WRITE-STRING-INTO-FILE :YES-NO) :ensure-package T :package "SCULLY.QUICKUTILS")
+;;;; (qtlc:save-utils-as "quickutils.lisp" :utilities '(:COMPOSE :COPY-HASH-TABLE :CURRY :ENSURE-BOOLEAN :ENSURE-GETHASH :ENSURE-LIST :EXTREMUM :FLATTEN-ONCE :HASH-TABLE-ALIST :HASH-TABLE-KEYS :HASH-TABLE-VALUES :MAP-PRODUCT :MKSTR :ONCE-ONLY :RCURRY :SET-EQUAL :SUBDIVIDE :SYMB :WITH-GENSYMS :WITH-OUTPUT-TO-FILE :WRITE-STRING-INTO-FILE :YES-NO) :ensure-package T :package "SCULLY.QUICKUTILS")
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (unless (find-package "SCULLY.QUICKUTILS")
@@ -14,13 +14,14 @@
 
 (when (boundp '*utilities*)
   (setf *utilities* (union *utilities* '(:MAKE-GENSYM-LIST :ENSURE-FUNCTION
-                                         :COMPOSE :COPY-HASH-TABLE :SUBDIVIDE
-                                         :CURRY :ENSURE-BOOLEAN :ENSURE-GETHASH
+                                         :COMPOSE :COPY-HASH-TABLE :CURRY
+                                         :ENSURE-BOOLEAN :ENSURE-GETHASH
                                          :ENSURE-LIST :EXTREMUM :FLATTEN-ONCE
-                                         :MAPHASH-KEYS :HASH-TABLE-KEYS
-                                         :MAPHASH-VALUES :HASH-TABLE-VALUES
-                                         :MAPPEND :MAP-PRODUCT :MKSTR
-                                         :ONCE-ONLY :RCURRY :SET-EQUAL :SYMB
+                                         :HASH-TABLE-ALIST :MAPHASH-KEYS
+                                         :HASH-TABLE-KEYS :MAPHASH-VALUES
+                                         :HASH-TABLE-VALUES :MAPPEND
+                                         :MAP-PRODUCT :MKSTR :ONCE-ONLY :RCURRY
+                                         :SET-EQUAL :SUBDIVIDE :SYMB
                                          :STRING-DESIGNATOR :WITH-GENSYMS
                                          :WITH-OPEN-FILE* :WITH-OUTPUT-TO-FILE
                                          :WRITE-STRING-INTO-FILE :YES-NO))))
@@ -98,28 +99,6 @@ copy is returned by default."
                  (setf (gethash k copy) (funcall key v)))
                table)
       copy))
-  
-
-  (defun subdivide (sequence chunk-size)
-    "Split `sequence` into subsequences of size `chunk-size`."
-    (check-type sequence sequence)
-    (check-type chunk-size (integer 1))
-    
-    (etypecase sequence
-      ;; Since lists have O(N) access time, we iterate through manually,
-      ;; collecting each chunk as we pass through it. Using SUBSEQ would
-      ;; be O(N^2).
-      (list (loop :while sequence
-                  :collect
-                  (loop :repeat chunk-size
-                        :while sequence
-                        :collect (pop sequence))))
-      
-      ;; For other sequences like strings or arrays, we can simply chunk
-      ;; by repeated SUBSEQs.
-      (sequence (loop :with len := (length sequence)
-                      :for i :below len :by chunk-size
-                      :collect (subseq sequence i (min len (+ chunk-size i)))))))
   
 
   (defun curry (function &rest arguments)
@@ -215,6 +194,16 @@ If `sequence` is empty, `nil` is returned."
             :append x 
           :else
             :collect x))
+  
+
+  (defun hash-table-alist (table)
+    "Returns an association list containing the keys and values of hash table
+`table`."
+    (let ((alist nil))
+      (maphash (lambda (k v)
+                 (push (cons k v) alist))
+               table)
+      alist))
   
 
   (declaim (inline maphash-keys))
@@ -351,6 +340,28 @@ every element of `list2` matches some element of `list1`. Otherwise returns fals
                  (return nil))))))
   
 
+  (defun subdivide (sequence chunk-size)
+    "Split `sequence` into subsequences of size `chunk-size`."
+    (check-type sequence sequence)
+    (check-type chunk-size (integer 1))
+    
+    (etypecase sequence
+      ;; Since lists have O(N) access time, we iterate through manually,
+      ;; collecting each chunk as we pass through it. Using SUBSEQ would
+      ;; be O(N^2).
+      (list (loop :while sequence
+                  :collect
+                  (loop :repeat chunk-size
+                        :while sequence
+                        :collect (pop sequence))))
+      
+      ;; For other sequences like strings or arrays, we can simply chunk
+      ;; by repeated SUBSEQs.
+      (sequence (loop :with len := (length sequence)
+                      :for i :below len :by chunk-size
+                      :collect (subseq sequence i (min len (+ chunk-size i)))))))
+  
+
   (defun symb (&rest args)
     "Receives any number of objects, concatenates all into one string with `#'mkstr` and converts them to symbol.
 
@@ -462,10 +473,10 @@ unless it's `nil`, which means the system default."
     nil)
   
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (export '(compose copy-hash-table subdivide curry ensure-boolean
-            ensure-gethash ensure-list extremum flatten-once hash-table-keys
-            hash-table-values map-product mkstr once-only rcurry set-equal symb
-            with-gensyms with-unique-names with-output-to-file
+  (export '(compose copy-hash-table curry ensure-boolean ensure-gethash
+            ensure-list extremum flatten-once hash-table-alist hash-table-keys
+            hash-table-values map-product mkstr once-only rcurry set-equal
+            subdivide symb with-gensyms with-unique-names with-output-to-file
             write-string-into-file yes no)))
 
 ;;;; END OF quickutils.lisp ;;;;

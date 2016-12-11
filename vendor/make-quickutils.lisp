@@ -12,6 +12,7 @@
                :ensure-list
                :extremum
                :flatten-once
+               :hash-table-alist
                :hash-table-keys
                :hash-table-values
                :map-product
