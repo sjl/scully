@@ -74,15 +74,6 @@
     :integerize-rules
     :stratify-layer))
 
-(defpackage :scully.logic
-  (:use
-    :cl
-    :losh
-    :iterate
-    :trivia
-    :cl-arrows
-    :scully.quickutils))
-
 
 (defpackage :scully.reasoners.prolog
   (:use
@@ -103,6 +94,16 @@
     :percepts-for
     :roles
     ))
+
+(defpackage :scully.reasoners.zdd
+  (:use
+    :cl
+    :losh
+    :iterate
+    :trivia
+    :cl-arrows
+    :scully.quickutils))
+
 
 (defpackage :scully.grounders.prolog
   (:use
@@ -127,6 +128,7 @@
   (:export
     :ground-gdl-file
     :ground-gdl-string))
+
 
 (defpackage :scully.players.random
   (:use

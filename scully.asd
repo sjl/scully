@@ -37,9 +37,9 @@
                              (:file "rule-trees")
                              (:file "zdd")
                              (:file "graphviz")
-                             (:file "logic")
                              (:module "reasoners" :serial t
-                              :components ((:file "prolog")))
+                              :components ((:file "prolog")
+                                           (:file "zdd")))
                              (:module "grounders" :serial t
                               :components ((:file "prolog")
                                            (:file "fluxplayer")))

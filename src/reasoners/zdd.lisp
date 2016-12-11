@@ -1,4 +1,4 @@
-(in-package :scully.logic)
+(in-package :scully.reasoners.zdd)
 
 (defparameter *rules*
   (scully.gdl::read-gdl "gdl/tictactoe-grounded.gdl")
@@ -8,25 +8,24 @@
   )
 
 
-(defun slot-definition (conc-name slot)
-  (destructuring-bind (name &key
-                            type
-                            documentation
-                            (accessor (symb conc-name name))
-                            (initarg (intern (symbol-name name) :keyword)))
-      (ensure-list slot)
-    `(,name :initarg ,initarg :accessor ,accessor
-            ,@(when type `(:type ,type))
-            ,@(when documentation `(:documentation ,documentation)))))
-
 (defmacro defclass* (name-and-options direct-superclasses slots &rest options)
-  (destructuring-bind (name &key (conc-name (symb name '-)))
-      (ensure-list name-and-options)
-    `(defclass ,name ,direct-superclasses
-       ,(mapcar (curry #'slot-definition conc-name) slots)
-       ,@options)))
+  (flet ((slot-definition (conc-name slot)
+           (destructuring-bind (name &key
+                                     type
+                                     documentation
+                                     (accessor (symb conc-name name))
+                                     (initarg (intern (symbol-name name) :keyword)))
+               (ensure-list slot)
+             `(,name :initarg ,initarg :accessor ,accessor
+               ,@(when type `(:type ,type))
+               ,@(when documentation `(:documentation ,documentation))))))
+    (destructuring-bind (name &key (conc-name (symb name '-)))
+        (ensure-list name-and-options)
+      `(defclass ,name ,direct-superclasses
+        ,(mapcar (curry #'slot-definition conc-name) slots)
+        ,@options))))
 
-(defclass* (logic-manager :conc-name lm-) ()
+(defclass* (zdd-reasoner :conc-name zr-) ()
   (rules
    roles
    term->number
@@ -69,7 +68,7 @@
     (mapcar #'scully.rule-trees::make-rule-tree <>)))
 
 
-(defun make-logic-manager (rules)
+(defun make-zdd-reasoner (rules)
   "Turn a set of grounded GDL rules into a logic manager.
 
   A rule forest is a collection of individual rule trees in a single layer,
@@ -93,7 +92,7 @@
                  scully.terms::stratify-layer
                  (mapcar #'make-stratum-rule-trees <>))))
         (scully.zdd::with-zdd
-          (make-instance 'logic-manager
+          (make-instance 'zdd-reasoner
             :rules rules
             :roles (find-roles rules)
             :possible-forest (make-forest :possible)
@@ -106,38 +105,38 @@
             :number->term number->term))))))
 
 
-(defun initial-iset (logic-manager)
+(defun initial-iset (reasoner)
   "Return the initial information set of the game."
-  (lm-initial-zdd logic-manager))
+  (zr-initial-zdd reasoner))
 
-(defun number-to-term (logic-manager number)
-  (gethash number (lm-number->term logic-manager)))
+(defun number-to-term (reasoner number)
+  (gethash number (zr-number->term reasoner)))
 
-(defun term-to-number (logic-manager term)
-  (gethash term (lm-term->number logic-manager)))
+(defun term-to-number (reasoner term)
+  (gethash term (zr-term->number reasoner)))
 
-(defun rand-state (logic-manager iset)
+(defun rand-state (reasoner iset)
   "Select a random member of the given information set."
-  (mapcar (curry #'number-to-term logic-manager)
+  (mapcar (curry #'number-to-term reasoner)
           (scully.zdd::zdd-random-member iset)))
 
-(defun terminalp (logic-manager iset)
+(defun terminalp (reasoner iset)
   "Return whether the given information set is a terminal state."
   (-<> iset
-    (scully.zdd::zdd-meet <> (lm-terminal-zdd logic-manager))
+    (scully.zdd::zdd-meet <> (zr-terminal-zdd reasoner))
     scully.zdd::zdd-unit-p
     not))
 
-(defun draw-zdd (logic-manager zdd)
+(defun draw-zdd (reasoner zdd)
   (flet ((label (n)
            (let ((*package* (find-package :ggp-rules)))
              (-<> n
-               (number-to-term logic-manager <>)
+               (number-to-term reasoner <>)
                (structural-string <>)))))
     (scully.graphviz::draw-zdd zdd :label-fn #'label)))
 
 
-(defparameter *l* (make-logic-manager *rules*))
+(defparameter *l* (make-zdd-reasoner *rules*))
 
 
 ; (defun apply-rule-tree (zdd rule-tree head-bound)
