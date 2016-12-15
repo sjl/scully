@@ -1,5 +1,8 @@
 (in-package :scully.reasoners.zdd)
 
+(defparameter *reasoner* nil)
+
+
 ;;;; Utils --------------------------------------------------------------------
 (defmacro defclass* (name-and-options direct-superclasses slots &rest options)
   (flet ((slot-definition (conc-name slot)
@@ -21,6 +24,18 @@
       `(defclass ,name ,direct-superclasses
         ,(mapcar (curry #'slot-definition conc-name) slots)
         ,@options))))
+
+
+(defun find-ggp-symbol (atom)
+  (if (symbolp atom)
+    (values (intern (symbol-name atom)
+                    (find-package :ggp-rules)))
+    atom))
+
+(defun make-iset (reasoner contents)
+  ; (print-hash-table (zr-term->number reasoner))
+  (zdd-set (mapcar (curry #'term-to-number reasoner)
+                   (map-tree #'find-ggp-symbol contents))))
 
 
 ;;;; Rule Forests -------------------------------------------------------------
@@ -167,7 +182,10 @@
 (defun label (reasoner n)
   (let ((*package* (find-package :ggp-rules)))
     (-<> n
-      (number-to-term reasoner <>)
+      (number-to-term (if (eq t reasoner)
+                        *reasoner*
+                        reasoner)
+                      <>)
       (structural-string <>))))
 
 (defun draw-zdd (reasoner zdd)
@@ -178,6 +196,7 @@
 
 
 ;;;; Logic Application --------------------------------------------------------
+;;;; Utils
 (defun tree-to-result (tree)
   (adt:match scully.rule-trees::rule-tree tree
     ((scully.rule-trees::top head) (values nil head))
@@ -218,6 +237,7 @@
     (finally (return (values (make-forest-with forest new-strata) heads)))))
 
 
+;;;; Phase 1: Information Set Traversal
 (defun advance-tree (tree term)
   "Advance the rule tree up to (but not beyond) `term`.
 
@@ -270,15 +290,8 @@
   (process-forest (rcurry #'split-tree-lo term) forest))
 
 
-(defun finalize-heads (reasoner forest heads)
-  "Finalize the set of heads to add and return the appropriate ZDD."
-  (prl reasoner forest heads)
-  (zdd-set heads))
-
-
-(defun traverse-iset (reasoner iset forest)
+(defun traverse-iset (iset forest)
   "Walk down the information set and rule forest in parallel."
-  (declare (ignorable reasoner))
   (recursively ((iset iset)
                 (forest forest)
                 (heads '()))
@@ -289,7 +302,7 @@
 
       ;; If we hit a unit sink we're done with the state-walking portion of this
       ;; algorithm and can move on the the fixed-pointing of the heads.
-      ((sink t) (finalize-heads reasoner forest heads))
+      ((sink t) (finalize-heads forest heads))
 
       ;; Otherwise we need to build a new ZDD node with the recursive results.
       ((node term hi lo)
@@ -303,11 +316,71 @@
            (recur lo forest-lo (append heads advanced-heads lo-heads))))))))
 
 
+;;;; Phase 2: Head Finalization
+(defun walk-tree-positive (rule-tree heads)
+  ; (pr "Walking positive rule tree with heads"
+  ;     (mapcar (curry #'number-to-term *reasoner*) heads))
+  ; (draw-rule-tree t rule-tree)
+  ; (break)
+  (adt:match scully.rule-trees::rule-tree rule-tree
+    ((scully.rule-trees::node term hi _)
+     (if (member term heads)
+       (walk-tree-positive hi heads)
+       (tree-to-result rule-tree)))
+    (_ (tree-to-result rule-tree))))
+
+(defun walk-tree-negative (rule-tree heads)
+  ; (pr "Walking negative rule tree with heads"
+  ;     (mapcar (curry #'number-to-term *reasoner*) heads))
+  ; (draw-rule-tree t rule-tree)
+  ; (break)
+  (adt:match scully.rule-trees::rule-tree rule-tree
+    ((scully.rule-trees::node term hi lo)
+     (if (member term heads)
+       (walk-tree-negative hi heads)
+       (walk-tree-negative lo heads)))
+    (_ (tree-to-result rule-tree))))
+
+
+(defun walk-stratum-positive (stratum heads)
+  (iterate
+    ; (pr "Beginning stratum walk, starthing with heads" heads)
+    (for (values new-stratum new-heads) =
+         (process-stratum (rcurry #'walk-tree-positive heads) stratum))
+    ; (pr "Found new heads:" new-heads)
+    ; (break)
+    (appending new-heads :into all-new-heads)
+    (setf stratum new-stratum
+          heads (append heads new-heads))
+    (while new-heads)
+    (finally (return (values stratum all-new-heads)))))
+
+(defun walk-stratum-negative (stratum heads)
+  (process-stratum (rcurry #'walk-tree-negative heads) stratum))
+
+
+(defun finalize-heads (forest heads)
+  "Finalize the set of heads to add and return the appropriate ZDD."
+  (multiple-value-bind (f h) (advance-forest forest (rf-lower-bound forest))
+    (setf heads (append heads h)
+          forest f))
+  (iterate
+    (for stratum :in (rf-strata forest))
+    (multiple-value-bind (s h) (walk-stratum-positive stratum heads)
+      (setf heads (append heads h)
+            stratum s))
+    (multiple-value-bind (s h) (walk-stratum-negative stratum heads)
+      (setf heads (append heads h)
+            stratum s))
+    (finally (return (zdd-set heads)))))
+
+
+;;;; API
 (defun apply-rule-forest (reasoner iset forest)
   "Apply `forest` to the given information set for `reasoner`."
-  (declare (ignorable reasoner))
   (with-zdd
-    (traverse-iset reasoner iset forest)))
+    (let ((*reasoner* reasoner))
+      (traverse-iset iset forest))))
 
 
 ;;;; Scratch ------------------------------------------------------------------
@@ -318,11 +391,40 @@
   ; (scully.gdl::read-gdl "gdl/roshambo2-grounded.gdl")
   )
 (defparameter *l* (make-zdd-reasoner *rules*))
+(defparameter *i* (initial-iset *l*))
+(defparameter *j* (initial-iset *l*))
 
-; (draw-zdd *l* (initial-iset *l*))
+(with-zdd
+  (-<> *l*
+    (make-iset '(
+                 (true (control oplayer))
+                 (true (cell 1 1 o)) (true (cell 1 2 x)) (true (cell 1 3 o))
+                 (true (cell 2 1 x)) (true (cell 2 2 o)) (true (cell 2 3 o))
+                 (true (cell 3 1 x)) (true (cell 3 2 x)) (true (cell 3 3 x))
+                 ))
+    (apply-rule-forest *l* <> (zr-possible-forest *l*))
+    (draw-zdd *l* <>)
+    ))
 
-; (-<> *l*
-;   (apply-rule-forest <> (initial-iset *l*) (zr-possible-forest *l*))
-;   (draw-zdd *l* <>)
-;   (no <>)
-;   )
+(with-zdd
+  (-<>
+      (zdd-union (make-iset *l* '(
+                                  (true (control xplayer))
+                                  (true (cell 1 1 o)) (true (cell 1 2 x)) (true (cell 1 3 B))
+                                  (true (cell 2 1 x)) (true (cell 2 2 o)) (true (cell 2 3 o))
+                                  (true (cell 3 1 x)) (true (cell 3 2 o)) (true (cell 3 3 x))
+                                  ))
+                 (make-iset *l* '(
+                                  (true (control xplayer))
+                                  (true (cell 1 1 o)) (true (cell 1 2 B)) (true (cell 1 3 x))
+                                  (true (cell 2 1 x)) (true (cell 2 2 o)) (true (cell 2 3 o))
+                                  (true (cell 3 1 x)) (true (cell 3 2 o)) (true (cell 3 3 x))
+                                  ))
+                 (make-iset *l* '(
+                                  (true (control xplayer))
+                                  (true (cell 1 1 o)) (true (cell 1 2 x)) (true (cell 1 3 x))
+                                  (true (cell 2 1 x)) (true (cell 2 2 o)) (true (cell 2 3 o))
+                                  (true (cell 3 1 x)) (true (cell 3 2 o)) (true (cell 3 3 B))
+                                  )))
+    (apply-rule-forest *l* <> (zr-possible-forest *l*))
+    (draw-zdd *l* <>)))

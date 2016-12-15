@@ -2,7 +2,7 @@
 ;;;; See http://quickutil.org for details.
 
 ;;;; To regenerate:
-;;;; (qtlc:save-utils-as "quickutils.lisp" :utilities '(:COMPOSE :EXTREMUM :COPY-HASH-TABLE :CURRY :ENSURE-BOOLEAN :ENSURE-GETHASH :ENSURE-LIST :EXTREMUM :FLATTEN-ONCE :HASH-TABLE-ALIST :HASH-TABLE-KEYS :HASH-TABLE-VALUES :MAP-PRODUCT :MKSTR :ONCE-ONLY :RCURRY :SET-EQUAL :SUBDIVIDE :SYMB :WITH-GENSYMS :WITH-OUTPUT-TO-FILE :WRITE-STRING-INTO-FILE :YES-NO) :ensure-package T :package "SCULLY.QUICKUTILS")
+;;;; (qtlc:save-utils-as "quickutils.lisp" :utilities '(:COMPOSE :COPY-HASH-TABLE :CURRY :ENSURE-BOOLEAN :ENSURE-GETHASH :ENSURE-LIST :EXTREMUM :FLATTEN-ONCE :HASH-TABLE-ALIST :HASH-TABLE-KEYS :HASH-TABLE-VALUES :MAP-PRODUCT :MAP-TREE :MKSTR :ONCE-ONLY :RCURRY :SET-EQUAL :SUBDIVIDE :SYMB :WITH-GENSYMS :WITH-OUTPUT-TO-FILE :WRITE-STRING-INTO-FILE :YES-NO) :ensure-package T :package "SCULLY.QUICKUTILS")
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (unless (find-package "SCULLY.QUICKUTILS")
@@ -20,10 +20,11 @@
                                          :HASH-TABLE-ALIST :MAPHASH-KEYS
                                          :HASH-TABLE-KEYS :MAPHASH-VALUES
                                          :HASH-TABLE-VALUES :MAPPEND
-                                         :MAP-PRODUCT :MKSTR :ONCE-ONLY :RCURRY
-                                         :SET-EQUAL :SUBDIVIDE :SYMB
-                                         :STRING-DESIGNATOR :WITH-GENSYMS
-                                         :WITH-OPEN-FILE* :WITH-OUTPUT-TO-FILE
+                                         :MAP-PRODUCT :MAP-TREE :MKSTR
+                                         :ONCE-ONLY :RCURRY :SET-EQUAL
+                                         :SUBDIVIDE :SYMB :STRING-DESIGNATOR
+                                         :WITH-GENSYMS :WITH-OPEN-FILE*
+                                         :WITH-OUTPUT-TO-FILE
                                          :WRITE-STRING-INTO-FILE :YES-NO))))
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun make-gensym-list (length &optional (x "G"))
@@ -270,6 +271,19 @@ Example:
       (%map-product (ensure-function function) (cons list more-lists))))
   
 
+  (defun map-tree (function tree)
+    "Map `function` to each of the leave of `tree`."
+    (check-type tree cons)
+    (labels ((rec (tree)
+               (cond
+                 ((null tree) nil)
+                 ((atom tree) (funcall function tree))
+                 ((consp tree)
+                  (cons (rec (car tree))
+                        (rec (cdr tree)))))))
+      (rec tree)))
+  
+
   (defun mkstr (&rest args)
     "Receives any number of objects (string, symbol, keyword, char, number), extracts all printed representations, and concatenates them all into one string.
 
@@ -475,8 +489,8 @@ unless it's `nil`, which means the system default."
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (export '(compose copy-hash-table curry ensure-boolean ensure-gethash
             ensure-list extremum flatten-once hash-table-alist hash-table-keys
-            hash-table-values map-product mkstr once-only rcurry set-equal
-            subdivide symb with-gensyms with-unique-names with-output-to-file
-            write-string-into-file yes no)))
+            hash-table-values map-product map-tree mkstr once-only rcurry
+            set-equal subdivide symb with-gensyms with-unique-names
+            with-output-to-file write-string-into-file yes no)))
 
 ;;;; END OF quickutils.lisp ;;;;

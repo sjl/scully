@@ -16,6 +16,7 @@
                :hash-table-keys
                :hash-table-values
                :map-product
+               :map-tree
                :mkstr
                :once-only
                :rcurry

@@ -94,7 +94,15 @@
                (_ (collect term))))))
 
 (defun extract-does (layers terms)
-  (extract-simple '(ggp-rules::does) :does layers terms))
+  (prog1
+      (extract-simple '(ggp-rules::does) :does layers terms)
+    ;; In addition to the simple things, we need to make sure we've got
+    ;; a corresponding `(does *)` term for any `(legal *)` term.
+    (iterate (for term :in terms)
+             (match term
+               (`(ggp-rules::legal ,@contents)
+                (mark layers :does `(ggp-rules::does ,@contents)))
+               (_ (collect term))))))
 
 
 (defun extract-possible% (layers dependencies terms)
