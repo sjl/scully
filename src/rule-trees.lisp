@@ -7,6 +7,16 @@
   (top t)
   bottom)
 
+(defun rule-tree-hi (tree)
+  (adt:match rule-tree tree
+    ((node _ hi _) hi)
+    (_ (error "No hi for rule tree ~S" tree))))
+
+(defun rule-tree-lo (tree)
+  (adt:match rule-tree tree
+    ((node _ _ lo) lo)
+    (_ (error "No lo for rule tree ~S" tree))))
+
 
 (defun find-smallest-body-term (bodies)
   "Find the smallest body term in `bodies`.
@@ -84,4 +94,11 @@
                        (500 19 17)
                        ))
 
-; (-<> *rule* make-rule-tree scully.graphviz::draw-rule-tree)
+; (-<> *rule*
+;   make-rule-tree
+;   (rule-tree-hi <>)
+;   (rule-tree-hi <>)
+;   ; (advance-tree <> 6)
+;   scully.graphviz::draw-rule-tree
+;   ; scully.graphviz::draw-rule-tree
+;   )

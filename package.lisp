@@ -44,7 +44,27 @@
     :trivia
     :trivialib.bdd
     :scully.quickutils)
-  (:export)
+  (:export
+    :node
+    :sink
+    :content
+    :with-zdd
+    :zdd-node
+    :zdd-empty-p
+    :zdd-unit-p
+    :zdd-count
+    :zdd-size
+    :zdd-random-member
+    :zdd-set
+    :zdd-union
+    :zdd-intersection
+    :zdd-join
+    :zdd-meet
+    :zdd-family
+    :zdd-keep-supersets-of
+    :zdd-remove-supersets-of
+    :zdd-keep-avoiders-of
+    :zdd-match)
   (:shadowing-import-from :hamt
     :hash-set))
 
@@ -102,6 +122,7 @@
     :iterate
     :trivia
     :cl-arrows
+    :scully.zdd
     :scully.quickutils))
 
 
