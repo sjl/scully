@@ -72,7 +72,7 @@
 (defun dedupe-state (state)
   (iterate (for fact :in state)
            (for prev :previous fact)
-           (when (not (eql fact prev))
+           (when (not (equal fact prev))
              (collect fact))))
 
 (defun fact-slow< (a b)

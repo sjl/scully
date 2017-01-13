@@ -55,14 +55,18 @@
   (null (rf-strata forest)))
 
 
-(defun find-bound (predicate layer)
-  (extremum (mapcar #'scully.gdl::rule-head layer) predicate))
+(defun find-stratum-bound (predicate stratum)
+  (extremum (mapcar #'scully.gdl::rule-head stratum) predicate))
 
-(defun find-lower-bound (layer)
-  (find-bound #'< layer))
+(defun find-strata-bound (predicate strata)
+  (extremum (mapcar (curry #'find-stratum-bound predicate) strata)
+            predicate))
 
-(defun find-upper-bound (layer)
-  (find-bound #'> layer))
+(defun find-lower-bound (strata)
+  (find-strata-bound #'< strata))
+
+(defun find-upper-bound (strata)
+  (find-strata-bound #'> strata))
 
 
 ;;;; Reasoner -----------------------------------------------------------------
@@ -94,6 +98,14 @@
           rules))
 
 (defun make-predicate-zdd (predicate term->number)
+  "Make a ZDD with a single member: the set of all terms for a single predicate.
+
+  For example:
+
+    (make-predicate-zdd 'ggp-rules::legal ...)
+    (make-predicate-zdd 'ggp-rules::true ...)
+
+  "
   (-<> term->number
     hash-table-alist
     (remove-if-not (lambda (rule)
@@ -108,18 +120,15 @@
     hash-table-values
     (mapcar #'scully.rule-trees::make-rule-tree <>)))
 
-(defun make-rule-forest (rule-layers layer)
-  (let ((rules (gethash layer rule-layers)))
-    (make-instance 'rule-forest
-      :strata (-<> rules
-                scully.terms::stratify-layer
-                (mapcar #'make-stratum-rule-trees <>))
-      :upper-bound (find-upper-bound rules)
-      :lower-bound (find-lower-bound rules))))
+(defun make-rule-forest (strata)
+  (make-instance 'rule-forest
+    :strata (mapcar #'make-stratum-rule-trees strata)
+    :upper-bound (find-upper-bound strata)
+    :lower-bound (find-lower-bound strata)))
 
 
 (defun make-zdd-reasoner (rules)
-  "Turn a set of grounded GDL rules into a logic manager.
+  "Turn a set of grounded GDL rules into a ZDD-based reasoner.
 
   A rule forest is a collection of individual rule trees in a single layer,
   stratified as necessary:
@@ -134,14 +143,14 @@
 
   "
   (let ((rules (scully.gdl::normalize-rules rules)))
-    (destructuring-bind (term->number number->term rule-layers)
+    (destructuring-bind (term->number number->term possible happens)
         (scully.terms::integerize-rules rules)
       (with-zdd
         (make-instance 'zdd-reasoner
           :rules rules
           :roles (find-roles rules)
-          :possible-forest (make-rule-forest rule-layers :possible)
-          :happens-forest (make-rule-forest rule-layers :happens)
+          :possible-forest (make-rule-forest possible)
+          :happens-forest (make-rule-forest happens)
           :initial-zdd (zdd-set (find-initial-state rules term->number))
           :legal-zdd (make-predicate-zdd 'ggp-rules::legal term->number)
           :goal-zdd (make-predicate-zdd 'ggp-rules::goal term->number)
@@ -156,6 +165,17 @@
 
 (defun term-to-number (reasoner term)
   (gethash term (zr-term->number reasoner)))
+
+
+(defun iset-to-list (reasoner iset)
+  (map-tree (curry #'number-to-term reasoner)
+            (scully.zdd::enumerate iset)))
+
+(defun dump-iset (reasoner iset)
+  (iterate (for i :from 0)
+           (for state :in (iset-to-list reasoner iset))
+           (format t "STATE ~D:~%~{    ~S~%~}~2%" i state))
+  iset)
 
 
 (defun initial-iset (reasoner)
@@ -318,10 +338,6 @@
 
 ;;;; Phase 2: Head Finalization
 (defun walk-tree-positive (rule-tree heads)
-  ; (pr "Walking positive rule tree with heads"
-  ;     (mapcar (curry #'number-to-term *reasoner*) heads))
-  ; (draw-rule-tree t rule-tree)
-  ; (break)
   (adt:match scully.rule-trees::rule-tree rule-tree
     ((scully.rule-trees::node term hi _)
      (if (member term heads)
@@ -330,10 +346,6 @@
     (_ (tree-to-result rule-tree))))
 
 (defun walk-tree-negative (rule-tree heads)
-  ; (pr "Walking negative rule tree with heads"
-  ;     (mapcar (curry #'number-to-term *reasoner*) heads))
-  ; (draw-rule-tree t rule-tree)
-  ; (break)
   (adt:match scully.rule-trees::rule-tree rule-tree
     ((scully.rule-trees::node term hi lo)
      (if (member term heads)
@@ -344,11 +356,8 @@
 
 (defun walk-stratum-positive (stratum heads)
   (iterate
-    ; (pr "Beginning stratum walk, starthing with heads" heads)
     (for (values new-stratum new-heads) =
          (process-stratum (rcurry #'walk-tree-positive heads) stratum))
-    ; (pr "Found new heads:" new-heads)
-    ; (break)
     (appending new-heads :into all-new-heads)
     (setf stratum new-stratum
           heads (append heads new-heads))
@@ -390,6 +399,20 @@
   ; (scully.gdl::read-gdl "gdl/8puzzle-grounded.gdl")
   ; (scully.gdl::read-gdl "gdl/roshambo2-grounded.gdl")
   )
+
+(-<> *rules*
+  (scully.gdl::normalize-rules <>)
+  (scully.terms::integerize-rules <>)
+  (nth 2 <>)
+  (make-rule-forest <>)
+  ; (scully.terms::print-strata <>)
+  ; (no <>)
+  ; (rest <>)
+  ; (map nil #'print-hash-table <>)
+  )
+
+
+
 (defparameter *l* (make-zdd-reasoner *rules*))
 (defparameter *i* (initial-iset *l*))
 (defparameter *j* (initial-iset *l*))
@@ -427,4 +450,7 @@
                                   (true (cell 3 1 x)) (true (cell 3 2 o)) (true (cell 3 3 B))
                                   )))
     (apply-rule-forest *l* <> (zr-possible-forest *l*))
-    (draw-zdd *l* <>)))
+    (dump-iset *l* <>)
+    (no <>)
+    ; (draw-zdd *l* <>)
+    ))

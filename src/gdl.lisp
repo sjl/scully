@@ -43,7 +43,7 @@
 ;;;
 ;;;     (head . body)
 ;;;
-;;; * (<= head .body) becomes (head . body)
+;;; * (<= head . body) becomes (head . body)
 ;;; * (fact) becomes ((fact)), i.e. ((fact) . nil)
 ;;; * Nullary predicates like terminal have their parens added back.
 ;;;

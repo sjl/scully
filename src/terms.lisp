@@ -62,7 +62,8 @@
 
 (defun mark (layers layer term)
   (setf (gethash term layers) layer)
-  (pushnew term (gethash layer layers) :test #'equal))
+  (pushnew term (gethash layer layers) :test #'equal)
+  (values))
 
 
 (defun extract-simple (predicates layer layers terms)
@@ -167,42 +168,98 @@
     layers))
 
 
+;;;; Stratification -----------------------------------------------------------
+(defun build-single-layer-dependency-graph (rules)
+  (let* ((layer-heads (remove-duplicates (mapcar #'rule-head rules)
+                                         :test #'equal)))
+    (build-dependency-graph
+      rules
+      :includep (lambda (body-term)
+                  (and (negationp body-term)
+                       (member (bare-term body-term) layer-heads
+                               :test #'equal))))))
+
+(defun stratify-layer (rules)
+  "Stratify a single layer of rules into a list of strata."
+  (iterate
+    (with dependencies = (build-single-layer-dependency-graph rules))
+    (with remaining = rules)
+    (until (null remaining))
+
+    (for next-heads = (digraph:leafs dependencies))
+    (when (null next-heads)
+      (error "Cycle in negations detected!"))
+
+    (for stratum = (remove-if-not (lambda (head)
+                                    (member head next-heads :test #'equal))
+                                  remaining
+                                  :key #'rule-head))
+    (collect stratum)
+
+    (setf remaining (set-difference remaining stratum :test #'equal))
+
+    (dolist (head next-heads)
+      (digraph:remove-vertex dependencies head))))
+
+
 ;;;; Intra-Layer Ordering -----------------------------------------------------
-(defun sort-layer (negation-dependencies terms)
-  ;; We sort a layer by creating a digraph of only the terms in that layer,
-  ;; adding all negation dependencies between them, and topologically sorting.
-  (let ((layer (digraph:make-digraph :test #'equal)))
-    (flet ((add-dependencies (term)
-             (iterate
-               (for dep :in (digraph:successors negation-dependencies term))
-               ;; We only care about dependencies where both the head and body
-               ;; are in THIS layer -- we don't care about a dependency on an
-               ;; earlier layer.
-               (when (digraph:contains-vertex-p layer dep)
-                 (digraph:insert-edge layer term dep)))))
-      (mapc (curry #'digraph:insert-vertex layer) terms)
-      (mapc #'add-dependencies terms))
-    ;; todo: fix the roots/cycles issue in cl-digraph
-    (digraph:topological-sort layer)))
+(defun sort-and-flatten-strata (strata)
+  "Take `strata` and turn it into a sorted list of rule heads."
+  (flet ((heads-in-stratum (stratum)
+           (-<> stratum
+             (mapcar #'rule-head <>)
+             (remove-duplicates <> :test #'equal))))
+    (-<> strata
+      (mapcar #'heads-in-stratum <>)
+      (flatten-once <>))))
+
+(defun extract-rules-for-layer (layers rules layer-key)
+  "Return all rules for the given layer.
+
+  `layers` should be a table of terms to layer keys.
+  `rules` should be the list of all rules.
+
+  "
+  (iterate (for head :in (gethash layer-key layers))
+           (for matching-rules = (remove-if-not (curry #'equal head) rules
+                                                :key #'rule-head))
+           (appending matching-rules)))
+
+(defun order-layer (layer-terms layer-strata)
+  "Return a list of all terms in the layer in the proper order."
+  (let* ((strata-terms (sort-and-flatten-strata layer-strata))
+         (leftovers (set-difference layer-terms strata-terms :test #'equal)))
+    (append leftovers strata-terms)))
+
 
 (defun order-terms (rules)
   "Find a linear ordering of all terms in `rules`.
 
-  Returns two values: a list of the terms, in order, and the final layer hash
-  table.
+  Returns three values:
+
+  * A list of all terms, in order
+  * A list of the `:possible` strata
+  * A list of the `:happens` strata
 
   "
+  ;; Start by partitioning the terms into the layers.
   (let* ((dependencies (build-dependency-graph rules))
-         (negation-dependencies (build-dependency-graph rules
-                                                        :includep #'negationp))
          (layers (partition-rules dependencies rules)))
-    (let ((base (gethash :base layers))
-          (does (gethash :does layers))
-          (possible (sort-layer negation-dependencies (gethash :possible layers)))
-          (happens (sort-layer negation-dependencies (gethash :happens layers))))
-      ;; base < possible < does < happens
-      (values (append base possible does happens)
-              layers))))
+    ;; Then we need to stratify the possible & happens layers.
+    (let* ((possible-rules (extract-rules-for-layer layers rules :possible))
+           (happens-rules (extract-rules-for-layer layers rules :happens))
+           (possible-strata (stratify-layer possible-rules))
+           (happens-strata (stratify-layer happens-rules)))
+      ;; We order the individual layers.
+      (let ((base-terms (gethash :base layers))
+            (does-terms (gethash :does layers))
+            (possible-terms (order-layer (gethash :possible layers) possible-strata))
+            (happens-terms (order-layer (gethash :happens layers) happens-strata)))
+        ;; And finally we concatenate the layer orderings into one bigass order:
+        ;; base < possible < does < happens
+        (values (append base-terms possible-terms does-terms happens-terms)
+                possible-strata
+                happens-strata)))))
 
 
 ;;;; Integerization -----------------------------------------------------------
@@ -215,58 +272,64 @@
 (defun integerize-rule (term->number rule)
   (mapcar (curry #'integerize-term term->number) rule))
 
+(defun integerize-stratum (term->number stratum)
+  (mapcar (curry #'integerize-rule term->number) stratum))
+
+
 (defun integerize-rules (rules)
   "Integerize `rules`.
 
   `rules` should be a (normalized) list of rules.
 
-  A list of 3 hash tables will be returned:
+  A list of 4 values will be returned:
 
-    (term->number number->term rule-layers)
+  * The term->number hash table
+  * The number->term hash table
+  * A list of the `:possible` strata
+  * A list of the `:happens` strata
 
   "
   (let ((term->number (make-hash-table :test #'equal))
-        (number->term (make-hash-table))
-        (rule-layers (make-hash-table)))
-    (multiple-value-bind (terms layers)
+        (number->term (make-hash-table)))
+    (multiple-value-bind (terms possible happens)
         (order-terms rules)
+      ;; Generate the mapping tables
       (iterate (for i :from 0)
                (for term :in terms)
                (setf (gethash i number->term) term
                      (gethash term term->number) i))
-      (iterate (for rule :in rules)
-               (for layer = (gethash (rule-head rule) layers))
-               (push (integerize-rule term->number rule)
-                     (gethash layer rule-layers))))
-    (list term->number number->term rule-layers)))
+      ;; Return the tables and the integerized rules
+      (list term->number
+            number->term
+            (mapcar (curry #'integerize-stratum term->number) possible)
+            (mapcar (curry #'integerize-stratum term->number) happens)))))
 
 
-;;;; Stratification -----------------------------------------------------------
-(defun build-single-layer-dependency-graph (rules)
-  (let* ((layer-heads (remove-duplicates (mapcar #'rule-head rules))))
-    (build-dependency-graph
-      rules
-      :includep (lambda (b)
-                  (and (negationp b)
-                       (member (bare-term b) layer-heads))))))
+;;;; Scratch ------------------------------------------------------------------
+(defparameter *rules*
+  '(
+    (ggp-rules::<= x (ggp-rules::true a))
+    (ggp-rules::<= x (ggp-rules::true b))
+    (ggp-rules::<= y (ggp-rules::true b) (ggp-rules::not z))
+    (ggp-rules::<= z (ggp-rules::not x) foo)
+    (ggp-rules::<= dogs (ggp-rules::not y))
+    (ggp-rules::<= dogs (ggp-rules::true cats))
+    (ggp-rules::<= mice (ggp-rules::does player something))
+    ; (ggp-rules::<= cats (ggp-rules::does player something) x)
+    ))
 
-(defun stratify-layer (rules)
-  "Stratify a single layer of rules into a list of strata."
-  (iterate
-    (with dependencies = (build-single-layer-dependency-graph rules))
-    ; (initially (digraph.dot:draw dependencies))
-    (with remaining = rules)
-    (until (null remaining))
+(defun print-strata (strata)
+  (iterate (for i :from 0)
+           (for stratum :in strata)
+           (format t "STRATUM ~D:~%~{    ~S~%~}~2%"
+                   i stratum)))
 
-    (for next-heads = (digraph:leafs dependencies))
-    (when (null next-heads)
-      (error "Cycle in negations detected!"))
-
-    (for stratum = (remove-if-not (rcurry #'member next-heads)
-                                  remaining
-                                  :key #'rule-head))
-    (collect stratum)
-
-    (setf remaining (set-difference remaining stratum))
-    (mapc (curry #'digraph:remove-vertex dependencies) next-heads)))
-
+(-<> *rules*
+  (normalize-rules <>)
+  (integerize-rules <>)
+  ; (nth 2 <>)
+  ; (print-strata <>)
+  (no <>)
+  ; (rest <>)
+  ; (map nil #'print-hash-table <>)
+  )
