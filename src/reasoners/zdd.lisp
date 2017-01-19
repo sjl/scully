@@ -4,28 +4,6 @@
 
 
 ;;;; Utils --------------------------------------------------------------------
-(defmacro defclass* (name-and-options direct-superclasses slots &rest options)
-  (flet ((slot-definition (conc-name slot)
-           (destructuring-bind (name &key
-                                     type
-                                     documentation
-                                     initform
-                                     (accessor (symb conc-name name))
-                                     (initarg (intern (symbol-name name) :keyword)))
-               (ensure-list slot)
-             `(,name
-               :initarg ,initarg
-               :accessor ,accessor
-               ,@(when initform `(:initform ,initform))
-               ,@(when type `(:type ,type))
-               ,@(when documentation `(:documentation ,documentation))))))
-    (destructuring-bind (name &key (conc-name (symb name '-)))
-        (ensure-list name-and-options)
-      `(defclass ,name ,direct-superclasses
-        ,(mapcar (curry #'slot-definition conc-name) slots)
-        ,@options))))
-
-
 (defun find-ggp-symbol (atom)
   (if (symbolp atom)
     (values (intern (symbol-name atom)
@@ -38,35 +16,57 @@
                    (map-tree #'find-ggp-symbol contents))))
 
 
+;;;; Strata -------------------------------------------------------------------
+(defclass* stratum ()
+  (rule-trees lower-bound upper-bound))
+
+
+(defun make-stratum (rule-trees lower-bound upper-bound)
+  (make-instance 'stratum
+    :rule-trees rule-trees
+    :lower-bound lower-bound
+    :upper-bound upper-bound))
+
+(defun update-stratum-with (old-stratum new-rule-trees)
+  (make-stratum new-rule-trees
+                (stratum-lower-bound old-stratum)
+                (stratum-upper-bound old-stratum)))
+
+(defmethod print-object ((o stratum) stream)
+  (print-unreadable-object (o stream :type t :identity t)
+    (format stream "with ~D rule~:P (~D-~D)"
+            (length (stratum-rule-trees o))
+            (stratum-lower-bound o)
+            (stratum-upper-bound o))))
+
+
+(defun find-stratum-bounds (rules)
+  (extrema #'< (mapcar #'scully.gdl::rule-head rules)))
+
+(defun build-stratum-rule-trees (rules)
+  (-<> rules
+    (group-by #'scully.gdl::rule-head <>)
+    hash-table-values
+    (mapcar #'scully.rule-trees::make-rule-tree <>)))
+
+(defun build-stratum (rules)
+  (multiple-value-call #'make-stratum
+    (build-stratum-rule-trees rules)
+    (find-stratum-bounds rules)))
+
+
 ;;;; Rule Forests -------------------------------------------------------------
 (defclass* (rule-forest :conc-name rf-) ()
-  (strata
-   upper-bound
-   lower-bound))
+  (strata))
 
-
-(defun make-forest-with (old-forest strata)
-  (make-instance 'rule-forest
-    :strata strata
-    :upper-bound (rf-upper-bound old-forest)
-    :lower-bound (rf-lower-bound old-forest)))
+(defun make-rule-forest (strata)
+  (make-instance 'rule-forest :strata strata))
 
 (defun forest-empty-p (forest)
   (null (rf-strata forest)))
 
-
-(defun find-stratum-bound (predicate stratum)
-  (extremum (mapcar #'scully.gdl::rule-head stratum) predicate))
-
-(defun find-strata-bound (predicate strata)
-  (extremum (mapcar (curry #'find-stratum-bound predicate) strata)
-            predicate))
-
-(defun find-lower-bound (strata)
-  (find-strata-bound #'< strata))
-
-(defun find-upper-bound (strata)
-  (find-strata-bound #'> strata))
+(defun build-rule-forest (strata-list)
+  (make-rule-forest (mapcar #'build-stratum strata-list)))
 
 
 ;;;; Reasoner -----------------------------------------------------------------
@@ -79,6 +79,7 @@
    legal-zdd
    goal-zdd
    terminal-zdd
+   next-zdd
    possible-forest
    happens-forest))
 
@@ -114,18 +115,6 @@
     (mapcar #'cdr <>)
     (zdd-set <>)))
 
-(defun make-stratum-rule-trees (stratum)
-  (-<> stratum
-    (group-by #'car <>)
-    hash-table-values
-    (mapcar #'scully.rule-trees::make-rule-tree <>)))
-
-(defun make-rule-forest (strata)
-  (make-instance 'rule-forest
-    :strata (mapcar #'make-stratum-rule-trees strata)
-    :upper-bound (find-upper-bound strata)
-    :lower-bound (find-lower-bound strata)))
-
 
 (defun make-zdd-reasoner (rules)
   "Turn a set of grounded GDL rules into a ZDD-based reasoner.
@@ -149,12 +138,13 @@
         (make-instance 'zdd-reasoner
           :rules rules
           :roles (find-roles rules)
-          :possible-forest (make-rule-forest possible)
-          :happens-forest (make-rule-forest happens)
+          :possible-forest (build-rule-forest possible)
+          :happens-forest (build-rule-forest happens)
           :initial-zdd (zdd-set (find-initial-state rules term->number))
           :legal-zdd (make-predicate-zdd 'ggp-rules::legal term->number)
           :goal-zdd (make-predicate-zdd 'ggp-rules::goal term->number)
           :terminal-zdd (make-predicate-zdd 'ggp-rules::terminal term->number)
+          :next-zdd (make-predicate-zdd 'ggp-rules::next term->number)
           :term->number term->number
           :number->term number->term)))))
 
@@ -234,11 +224,12 @@
 
   "
   (iterate
-    (for tree :in stratum)
+    (for tree :in (stratum-rule-trees stratum))
     (for (values new-tree new-head) = (funcall function tree))
-    (when new-tree (collect new-tree :into new-stratum))
+    (when new-tree (collect new-tree :into new-trees))
     (when new-head (collect new-head :into new-heads))
-    (finally (return (values new-stratum new-heads)))))
+    (finally (return (values (update-stratum-with stratum new-trees)
+                             new-heads)))))
 
 (defun process-forest (function forest)
   "Process the rule forest with `function`.
@@ -254,11 +245,11 @@
     (for (values new-stratum new-heads) = (process-stratum function stratum))
     (when new-stratum (collect new-stratum :into new-strata))
     (appending new-heads :into heads)
-    (finally (return (values (make-forest-with forest new-strata) heads)))))
+    (finally (return (values (make-rule-forest new-strata) heads)))))
 
 
 ;;;; Phase 1: Information Set Traversal
-(defun advance-tree (tree term)
+(defun advance-tree (tree term heads)
   "Advance the rule tree up to (but not beyond) `term`.
 
   Two values will be returned:
@@ -268,13 +259,26 @@
 
   "
   (adt:match scully.rule-trees::rule-tree tree
-    ((scully.rule-trees::node term% _ lo)
+    ((scully.rule-trees::node term% hi lo)
      (if (< term% term)
-       (advance-tree lo term)
+       (if (member term% heads)
+         (advance-tree hi term heads)
+         (advance-tree lo term heads))
        (tree-to-result tree)))
     (_ (tree-to-result tree))))
 
-(defun advance-forest (forest term)
+(defun advance-stratum (stratum term &optional heads)
+  "Advance the stratum up to (but not beyond) `term`.
+
+  Two values will be returned:
+
+  1. The new stratum (possibly NIL).
+  2. Any new heads to add (possible NIL).
+
+  "
+  (process-stratum (rcurry #'advance-tree term heads) stratum))
+
+(defun advance-forest (forest term &optional heads)
   "Advance the rule forest up to (but not beyond) `term`.
 
   Two values will be returned:
@@ -283,7 +287,7 @@
   2. Any new heads to add (possible NIL).
 
   "
-  (process-forest (rcurry #'advance-tree term) forest))
+  (process-forest (rcurry #'advance-tree term heads) forest))
 
 
 (defun split-tree-hi (tree term)
@@ -345,15 +349,6 @@
        (tree-to-result rule-tree)))
     (_ (tree-to-result rule-tree))))
 
-(defun walk-tree-negative (rule-tree heads)
-  (adt:match scully.rule-trees::rule-tree rule-tree
-    ((scully.rule-trees::node term hi lo)
-     (if (member term heads)
-       (walk-tree-negative hi heads)
-       (walk-tree-negative lo heads)))
-    (_ (tree-to-result rule-tree))))
-
-
 (defun walk-stratum-positive (stratum heads)
   (iterate
     (for (values new-stratum new-heads) =
@@ -364,21 +359,27 @@
     (while new-heads)
     (finally (return (values stratum all-new-heads)))))
 
-(defun walk-stratum-negative (stratum heads)
-  (process-stratum (rcurry #'walk-tree-negative heads) stratum))
-
 
 (defun finalize-heads (forest heads)
   "Finalize the set of heads to add and return the appropriate ZDD."
-  (multiple-value-bind (f h) (advance-forest forest (rf-lower-bound forest))
-    (setf heads (append heads h)
-          forest f))
+  (declare (optimize (debug 3) (speed 0)))
   (iterate
     (for stratum :in (rf-strata forest))
-    (multiple-value-bind (s h) (walk-stratum-positive stratum heads)
+    (for lower-bound = (stratum-lower-bound stratum))
+    (multiple-value-bind (s h) (advance-stratum stratum lower-bound heads)
       (setf heads (append heads h)
             stratum s))
-    (multiple-value-bind (s h) (walk-stratum-negative stratum heads)
+
+    (pr '--------------------------------)
+    (pr stratum)
+    (pr lower-bound)
+    (pr heads)
+    (map nil (lambda (rt)
+               (draw-rule-tree *r* rt)
+               (break))
+         (stratum-rule-trees stratum))
+
+    (multiple-value-bind (s h) (walk-stratum-positive stratum heads)
       (setf heads (append heads h)
             stratum s))
     (finally (return (zdd-set heads)))))
@@ -394,17 +395,13 @@
 
 ;;;; Scratch ------------------------------------------------------------------
 (defparameter *rules*
-  (scully.gdl::read-gdl "gdl/tictactoe-grounded.gdl")
-  ; (scully.gdl::read-gdl "gdl/hanoi-grounded.gdl")
-  ; (scully.gdl::read-gdl "gdl/8puzzle-grounded.gdl")
-  ; (scully.gdl::read-gdl "gdl/roshambo2-grounded.gdl")
-  )
+  (scully.gdl::read-gdl "gdl/tictactoe-grounded.gdl"))
 
 (-<> *rules*
   (scully.gdl::normalize-rules <>)
   (scully.terms::integerize-rules <>)
-  (nth 2 <>)
-  (make-rule-forest <>)
+  ; (nth 2 <>)
+  ; (make-rule-forest <>)
   ; (scully.terms::print-strata <>)
   ; (no <>)
   ; (rest <>)
@@ -413,44 +410,47 @@
 
 
 
-(defparameter *l* (make-zdd-reasoner *rules*))
-(defparameter *i* (initial-iset *l*))
-(defparameter *j* (initial-iset *l*))
+(defparameter *r* (make-zdd-reasoner *rules*))
+(defparameter *i* (initial-iset *r*))
+(defparameter *j* (initial-iset *r*))
 
 (with-zdd
-  (-<> *l*
+  (-<> *r*
     (make-iset '(
-                 (true (control oplayer))
-                 (true (cell 1 1 o)) (true (cell 1 2 x)) (true (cell 1 3 o))
-                 (true (cell 2 1 x)) (true (cell 2 2 o)) (true (cell 2 3 o))
+                 (true (control xplayer))
+                 (true (cell 1 1 B)) (true (cell 1 2 x)) (true (cell 1 3 o))
+                 (true (cell 2 1 B)) (true (cell 2 2 o)) (true (cell 2 3 o))
                  (true (cell 3 1 x)) (true (cell 3 2 x)) (true (cell 3 3 x))
                  ))
-    (apply-rule-forest *l* <> (zr-possible-forest *l*))
-    (draw-zdd *l* <>)
+    (apply-rule-forest *r* <> (zr-possible-forest *r*))
+    (draw-zdd *r* <>)
+    (dump-iset *r* <>)
+    (no <>)
     ))
 
-(with-zdd
-  (-<>
-      (zdd-union (make-iset *l* '(
-                                  (true (control xplayer))
-                                  (true (cell 1 1 o)) (true (cell 1 2 x)) (true (cell 1 3 B))
-                                  (true (cell 2 1 x)) (true (cell 2 2 o)) (true (cell 2 3 o))
-                                  (true (cell 3 1 x)) (true (cell 3 2 o)) (true (cell 3 3 x))
-                                  ))
-                 (make-iset *l* '(
-                                  (true (control xplayer))
-                                  (true (cell 1 1 o)) (true (cell 1 2 B)) (true (cell 1 3 x))
-                                  (true (cell 2 1 x)) (true (cell 2 2 o)) (true (cell 2 3 o))
-                                  (true (cell 3 1 x)) (true (cell 3 2 o)) (true (cell 3 3 x))
-                                  ))
-                 (make-iset *l* '(
-                                  (true (control xplayer))
-                                  (true (cell 1 1 o)) (true (cell 1 2 x)) (true (cell 1 3 x))
-                                  (true (cell 2 1 x)) (true (cell 2 2 o)) (true (cell 2 3 o))
-                                  (true (cell 3 1 x)) (true (cell 3 2 o)) (true (cell 3 3 B))
-                                  )))
-    (apply-rule-forest *l* <> (zr-possible-forest *l*))
-    (dump-iset *l* <>)
-    (no <>)
-    ; (draw-zdd *l* <>)
-    ))
+
+(defun test ()
+  (with-zdd
+    (-<>
+        (zdd-union
+          ; (make-iset *r* '(
+          ;                  (true (control oplayer))
+          ;                  (true (cell 1 1 o)) (true (cell 1 2 x)) (true (cell 1 3 x))
+          ;                  (true (cell 2 1 x)) (true (cell 2 2 o)) (true (cell 2 3 b))
+          ;                  (true (cell 3 1 x)) (true (cell 3 2 o)) (true (cell 3 3 b))
+          ;                  ))
+          (make-iset *r* '(
+                           (true (control oplayer))
+                           (true (cell 1 1 o)) (true (cell 1 2 x)) (true (cell 1 3 x))
+                           (true (cell 2 1 x)) (true (cell 2 2 b)) (true (cell 2 3 o))
+                           (true (cell 3 1 x)) (true (cell 3 2 o)) (true (cell 3 3 b))
+                           )))
+      (apply-rule-forest *r* <> (zr-possible-forest *r*))
+      (zdd-join (make-iset *r* '((does oplayer (mark 3 3))
+                                 (does xplayer noop))))
+      (apply-rule-forest *r* <> (zr-happens-forest *r*))
+      ; (zdd-meet <> (zr-next-zdd *r*))
+      (dump-iset *r* <>)
+      (no <>)
+      ; (draw-zdd *r* <>)
+      )))
