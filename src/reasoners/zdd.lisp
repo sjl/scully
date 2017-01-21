@@ -342,12 +342,28 @@
 
 ;;;; Phase 2: Head Finalization
 (defun walk-tree-positive (rule-tree heads)
-  (adt:match scully.rule-trees::rule-tree rule-tree
-    ((scully.rule-trees::node term hi _)
-     (if (member term heads)
-       (walk-tree-positive hi heads)
-       (tree-to-result rule-tree)))
-    (_ (tree-to-result rule-tree))))
+  ;; At this point we need to see if this rule tree can be applied to the
+  ;; current heads.  This function is called in a fixed-point style, and it may
+  ;; take multiple iterations for the set of heads to add to stabilize.
+  ;;
+  ;; This function is called after the trees have been advanced to the lower
+  ;; bound of the stratum.  Because we stratified the negation dependencies,
+  ;; this means that the only things left at this point are positive terms.
+  (recursively ((tree rule-tree))
+    (adt:match scully.rule-trees::rule-tree tree
+      ;; If we're at a normal node, check if it's in the heads we've added so
+      ;; far and recur down the appropriate leg.
+      ((scully.rule-trees::node term hi lo)
+       (if (member term heads)
+         (recur hi)
+         (recur lo)))
+      ;; If we hit bottom, it just means we can't add this head *yet*.  Return
+      ;; the original rule tree.
+      ((scully.rule-trees::bottom)
+       (tree-to-result rule-tree))
+      ;; If we hit top we can add the head.
+      ((scully.rule-trees::top _)
+       (tree-to-result tree)))))
 
 (defun walk-stratum-positive (stratum heads)
   (iterate
@@ -370,14 +386,14 @@
       (setf heads (append heads h)
             stratum s))
 
-    (pr '--------------------------------)
-    (pr stratum)
-    (pr lower-bound)
-    (pr heads)
-    (map nil (lambda (rt)
-               (draw-rule-tree *r* rt)
-               (break))
-         (stratum-rule-trees stratum))
+    ; (pr '--------------------------------)
+    ; (pr stratum)
+    ; (pr lower-bound)
+    ; (pr heads)
+    ; (map nil (lambda (rt)
+    ;            (draw-rule-tree *r* rt)
+    ;            (break))
+    ;      (stratum-rule-trees stratum))
 
     (multiple-value-bind (s h) (walk-stratum-positive stratum heads)
       (setf heads (append heads h)
@@ -414,32 +430,32 @@
 (defparameter *i* (initial-iset *r*))
 (defparameter *j* (initial-iset *r*))
 
-; (with-zdd
-;   (-<> *r*
-;     (make-iset <>
-;                '(
-;                  (true (control xplayer))
-;                  (true (cell 1 1 B)) (true (cell 1 2 x)) (true (cell 1 3 o))
-;                  (true (cell 2 1 B)) (true (cell 2 2 o)) (true (cell 2 3 o))
-;                  (true (cell 3 1 x)) (true (cell 3 2 x)) (true (cell 3 3 x))
-;                  ))
-;     (apply-rule-forest *r* <> (zr-possible-forest *r*))
-;     (draw-zdd *r* <>)
-;     (dump-iset *r* <>)
-;     (no <>)
-;     ))
+(with-zdd
+  (-<> *r*
+    (make-iset <>
+               '(
+                 (true (control xplayer))
+                 (true (cell 1 1 B)) (true (cell 1 2 x)) (true (cell 1 3 o))
+                 (true (cell 2 1 B)) (true (cell 2 2 o)) (true (cell 2 3 o))
+                 (true (cell 3 1 x)) (true (cell 3 2 x)) (true (cell 3 3 x))
+                 ))
+    (apply-rule-forest *r* <> (zr-possible-forest *r*))
+    (draw-zdd *r* <>)
+    (dump-iset *r* <>)
+    (no <>)
+    ))
 
 
 (defun test ()
   (with-zdd
     (-<>
         (zdd-union
-          ; (make-iset *r* '(
-          ;                  (true (control oplayer))
-          ;                  (true (cell 1 1 o)) (true (cell 1 2 x)) (true (cell 1 3 x))
-          ;                  (true (cell 2 1 x)) (true (cell 2 2 o)) (true (cell 2 3 b))
-          ;                  (true (cell 3 1 x)) (true (cell 3 2 o)) (true (cell 3 3 b))
-          ;                  ))
+          (make-iset *r* '(
+                           (true (control oplayer))
+                           (true (cell 1 1 o)) (true (cell 1 2 x)) (true (cell 1 3 x))
+                           (true (cell 2 1 x)) (true (cell 2 2 o)) (true (cell 2 3 b))
+                           (true (cell 3 1 x)) (true (cell 3 2 o)) (true (cell 3 3 b))
+                           ))
           (make-iset *r* '(
                            (true (control oplayer))
                            (true (cell 1 1 o)) (true (cell 1 2 x)) (true (cell 1 3 x))
@@ -447,10 +463,10 @@
                            (true (cell 3 1 x)) (true (cell 3 2 o)) (true (cell 3 3 b))
                            )))
       (apply-rule-forest *r* <> (zr-possible-forest *r*))
-      (zdd-join (make-iset *r* '((does oplayer (mark 3 3))
-                                 (does xplayer noop))))
+      (zdd-join <> (make-iset *r* '((does oplayer (mark 3 3))
+                                    (does xplayer noop))))
       (apply-rule-forest *r* <> (zr-happens-forest *r*))
-      ; (zdd-meet <> (zr-next-zdd *r*))
+      (zdd-meet <> (zr-next-zdd *r*))
       (dump-iset *r* <>)
       (no <>)
       ; (draw-zdd *r* <>)
