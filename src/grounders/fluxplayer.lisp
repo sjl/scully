@@ -133,9 +133,9 @@
     (apply #'rebuild-rules)))
 
 (defun ground-gdl-file (filename)
-  (->> (ground-with-fluxplayer "" filename)
+  (-<> (ground-with-fluxplayer "" filename)
     parse-raw-grounded
-    (apply #'rebuild-rules)))
+    (apply #'rebuild-rules <>)))
 
 
 (defun dump-grounded (filename)

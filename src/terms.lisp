@@ -324,12 +324,12 @@
            (format t "STRATUM ~D:~%~{    ~S~%~}~2%"
                    i stratum)))
 
-(-<> *rules*
-  (normalize-rules <>)
-  (integerize-rules <>)
-  ; (nth 2 <>)
-  ; (print-strata <>)
-  (no <>)
-  ; (rest <>)
-  ; (map nil #'print-hash-table <>)
-  )
+; (-<> *rules*
+;   (normalize-rules <>)
+;   (integerize-rules <>)
+;   ; (nth 2 <>)
+;   ; (print-strata <>)
+;   (no <>)
+;   ; (rest <>)
+;   ; (map nil #'print-hash-table <>)
+;   )

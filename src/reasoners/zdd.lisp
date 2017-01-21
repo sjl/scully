@@ -414,19 +414,20 @@
 (defparameter *i* (initial-iset *r*))
 (defparameter *j* (initial-iset *r*))
 
-(with-zdd
-  (-<> *r*
-    (make-iset '(
-                 (true (control xplayer))
-                 (true (cell 1 1 B)) (true (cell 1 2 x)) (true (cell 1 3 o))
-                 (true (cell 2 1 B)) (true (cell 2 2 o)) (true (cell 2 3 o))
-                 (true (cell 3 1 x)) (true (cell 3 2 x)) (true (cell 3 3 x))
-                 ))
-    (apply-rule-forest *r* <> (zr-possible-forest *r*))
-    (draw-zdd *r* <>)
-    (dump-iset *r* <>)
-    (no <>)
-    ))
+; (with-zdd
+;   (-<> *r*
+;     (make-iset <>
+;                '(
+;                  (true (control xplayer))
+;                  (true (cell 1 1 B)) (true (cell 1 2 x)) (true (cell 1 3 o))
+;                  (true (cell 2 1 B)) (true (cell 2 2 o)) (true (cell 2 3 o))
+;                  (true (cell 3 1 x)) (true (cell 3 2 x)) (true (cell 3 3 x))
+;                  ))
+;     (apply-rule-forest *r* <> (zr-possible-forest *r*))
+;     (draw-zdd *r* <>)
+;     (dump-iset *r* <>)
+;     (no <>)
+;     ))
 
 
 (defun test ()

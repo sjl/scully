@@ -19,7 +19,6 @@
                :fare-quasiquote-readtable
                :cl-dot
                :cl-algebraic-data-type
-               :cl-arrows
                :cl-ggp
                :cl-hamt
                :trivia

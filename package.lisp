@@ -3,9 +3,7 @@
     :cl
     :losh
     :iterate
-    :cl-arrows
     :temperance
-    :trivia
     :named-readtables
     :scully.quickutils)
   (:export
@@ -21,7 +19,10 @@
     :rule-head
     :rule-body
     :rule-predicate
-    :rule-head=))
+    :rule-head=)
+  (:import-from :trivia
+    :defun-ematch
+    :defun-match))
 
 
 (defpackage :scully.graphviz
@@ -29,17 +30,17 @@
     :cl
     :losh
     :iterate
-    :cl-arrows
     :trivia
     :trivialib.bdd
-    :scully.quickutils))
+    :scully.quickutils)
+  (:shadowing-import-from :losh
+    :<>))
 
 (defpackage :scully.zdd
   (:use
     :cl
     :losh
     :iterate
-    :cl-arrows
     :hamt
     :trivia
     :trivialib.bdd
@@ -66,15 +67,15 @@
     :zdd-keep-avoiders-of
     :zdd-match)
   (:shadowing-import-from :hamt
-    :hash-set))
+    :hash-set)
+  (:shadowing-import-from :losh
+    :<>))
 
 (defpackage :scully.rule-trees
   (:use
     :cl
     :losh
     :iterate
-    :cl-arrows
-    :trivia
     :named-readtables
     :scully.gdl
     :scully.quickutils)
@@ -85,14 +86,14 @@
     :cl
     :losh
     :iterate
-    :cl-arrows
-    :trivia
     :named-readtables
     :scully.gdl
     :scully.quickutils)
   (:export
     :integerize-rules
-    :stratify-layer))
+    :stratify-layer)
+  (:import-from :trivia
+    :match))
 
 
 (defpackage :scully.reasoners.prolog
@@ -100,7 +101,6 @@
     :cl
     :losh
     :iterate
-    :cl-arrows
     :temperance
     :scully.quickutils)
   (:export
@@ -119,11 +119,12 @@
   (:use
     :cl
     :losh
-    :iterate
     :trivia
-    :cl-arrows
+    :iterate
     :scully.zdd
-    :scully.quickutils))
+    :scully.quickutils)
+  (:shadowing-import-from :losh
+    :<>))
 
 
 (defpackage :scully.grounders.prolog
@@ -132,7 +133,6 @@
     :losh
     :iterate
     :optima
-    :cl-arrows
     :temperance
     :scully.quickutils)
   (:export
@@ -143,7 +143,6 @@
     :cl
     :losh
     :iterate
-    :cl-arrows
     :smug
     :scully.quickutils)
   (:export
@@ -156,7 +155,6 @@
     :cl
     :losh
     :iterate
-    :cl-arrows
     :scully.quickutils
     :scully.reasoners.prolog)
   (:export
@@ -167,7 +165,6 @@
     :cl
     :losh
     :iterate
-    :cl-arrows
     :scully.quickutils
     :scully.reasoners.prolog)
   (:export
