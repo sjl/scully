@@ -149,6 +149,20 @@
           :number->term number->term)))))
 
 
+;;;; State Conversion ---------------------------------------------------------
+(defun convert-next-to-true (reasoner zdd)
+  (recursively ((z zdd))
+    (ematch z
+      ((sink nil) (sink nil))
+      ((sink t) (sink t))
+      ((node n hi lo)
+       (ematch (number-to-term reasoner n)
+         (`(ggp-rules::next ,body)
+          (zdd-node (term-to-number reasoner `(ggp-rules::true ,body))
+                    (recur hi)
+                    (recur lo))))))))
+
+
 ;;;; Basic API ----------------------------------------------------------------
 (defun number-to-term (reasoner number)
   (gethash number (zr-number->term reasoner)))
@@ -467,6 +481,8 @@
                                     (does xplayer noop))))
       (apply-rule-forest *r* <> (zr-happens-forest *r*))
       (zdd-meet <> (zr-next-zdd *r*))
+      (dump-iset *r* <>)
+      (convert-next-to-true *r* <>)
       (dump-iset *r* <>)
       (no <>)
       ; (draw-zdd *r* <>)

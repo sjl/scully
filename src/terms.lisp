@@ -232,6 +232,20 @@
     (append leftovers strata-terms)))
 
 
+(defun sort-base-layer (base-terms happens-terms)
+  "Return a fresh list of the base terms, sorted correctly."
+  ;; The base layer needs to be sorted in the same order as the `next` terms
+  ;; appear in the `happens` layer, because we want to be able to convert a ZDD
+  ;; of `(next ...)` terms into the next information set in a single pass.
+  (sort (copy-seq base-terms) #'<
+        :key (trivia:lambda-match
+               (`(ggp-rules::true ,body)
+                (or (position `(ggp-rules::next ,body) happens-terms
+                              :test #'equal)
+                    -1))
+               (_ -2))))
+
+
 (defun order-terms (rules)
   "Find a linear ordering of all terms in `rules`.
 
@@ -251,10 +265,10 @@
            (possible-strata (stratify-layer possible-rules))
            (happens-strata (stratify-layer happens-rules)))
       ;; We order the individual layers.
-      (let ((base-terms (gethash :base layers))
-            (does-terms (gethash :does layers))
-            (possible-terms (order-layer (gethash :possible layers) possible-strata))
-            (happens-terms (order-layer (gethash :happens layers) happens-strata)))
+      (let* ((possible-terms (order-layer (gethash :possible layers) possible-strata))
+             (happens-terms (order-layer (gethash :happens layers) happens-strata))
+             (base-terms (sort-base-layer (gethash :base layers) happens-terms))
+             (does-terms (gethash :does layers)))
         ;; And finally we concatenate the layer orderings into one bigass order:
         ;; base < possible < does < happens
         (values (append base-terms possible-terms does-terms happens-terms)
@@ -310,12 +324,11 @@
   '(
     (ggp-rules::<= x (ggp-rules::true a))
     (ggp-rules::<= x (ggp-rules::true b))
-    (ggp-rules::<= y (ggp-rules::true b) (ggp-rules::not z))
-    (ggp-rules::<= z (ggp-rules::not x) foo)
-    (ggp-rules::<= dogs (ggp-rules::not y))
-    (ggp-rules::<= dogs (ggp-rules::true cats))
-    (ggp-rules::<= mice (ggp-rules::does player something))
-    ; (ggp-rules::<= cats (ggp-rules::does player something) x)
+    (ggp-rules::<= (ggp-rules::next a)
+                   (ggp-rules::true dangus))
+    (ggp-rules::<= z (ggp-rules::does c x))
+    (ggp-rules::<= (ggp-rules::next b)
+                   (ggp-rules::not z))
     ))
 
 (defun print-strata (strata)
@@ -324,12 +337,12 @@
            (format t "STRATUM ~D:~%~{    ~S~%~}~2%"
                    i stratum)))
 
-; (-<> *rules*
-;   (normalize-rules <>)
-;   (integerize-rules <>)
-;   ; (nth 2 <>)
-;   ; (print-strata <>)
-;   (no <>)
-;   ; (rest <>)
-;   ; (map nil #'print-hash-table <>)
-;   )
+(-<> *rules*
+  (normalize-rules <>)
+  (integerize-rules <>)
+  ; (nth 2 <>)
+  ; (print-strata <>)
+  (no <>)
+  ; (rest <>)
+  ; (map nil #'print-hash-table <>)
+  )
