@@ -1,4 +1,5 @@
 (in-package :scully.reasoners.zdd)
+(in-readtable :fare-quasiquote)
 
 (defparameter *reasoner* nil)
 

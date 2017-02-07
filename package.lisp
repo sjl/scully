@@ -121,6 +121,7 @@
     :losh
     :trivia
     :iterate
+    :named-readtables
     :scully.zdd
     :scully.quickutils)
   (:shadowing-import-from :losh
