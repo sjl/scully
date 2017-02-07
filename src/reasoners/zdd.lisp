@@ -81,6 +81,7 @@
    goal-zdd
    terminal-zdd
    next-zdd
+   percept-zdds
    possible-forest
    happens-forest))
 
@@ -99,22 +100,28 @@
              (list r)))
           rules))
 
-(defun make-predicate-zdd (predicate term->number)
+(defun make-predicate-zdd (predicate-prefix term->number)
   "Make a ZDD with a single member: the set of all terms for a single predicate.
 
   For example:
 
-    (make-predicate-zdd 'ggp-rules::legal ...)
-    (make-predicate-zdd 'ggp-rules::true ...)
+    (make-predicate-zdd '(ggp-rules::legal) ...)
+    (make-predicate-zdd '(ggp-rules::true) ...)
+    (make-predicate-zdd '(ggp-rules::sees ggp-rules::white) ...)
 
   "
-  (-<> term->number
-    hash-table-alist
-    (remove-if-not (lambda (rule)
-                     (eql predicate (first (first rule))))
-                   <>)
-    (mapcar #'cdr <>)
-    (zdd-set <>)))
+  (let ((prefix-length (length predicate-prefix)))
+    (-<> term->number
+      hash-table-alist
+      (mapcar (lambda (rule-mapping)
+                (destructuring-bind (term . number) rule-mapping
+                  (if (equal predicate-prefix
+                             (take prefix-length term))
+                    number
+                    nil)))
+              <>)
+      (remove nil <>)
+      (zdd-set <>))))
 
 
 (defun make-zdd-reasoner (rules)
@@ -132,20 +139,27 @@
          (rule-tree-1 rule-tree-2 ...)
 
   "
-  (let ((rules (scully.gdl::normalize-rules rules)))
+  (let* ((rules (scully.gdl::normalize-rules rules))
+         (roles (find-roles rules)))
     (destructuring-bind (term->number number->term possible happens)
         (scully.terms::integerize-rules rules)
       (with-zdd
         (make-instance 'zdd-reasoner
           :rules rules
-          :roles (find-roles rules)
+          :roles roles
           :possible-forest (build-rule-forest possible)
           :happens-forest (build-rule-forest happens)
           :initial-zdd (zdd-set (find-initial-state rules term->number))
-          :legal-zdd (make-predicate-zdd 'ggp-rules::legal term->number)
-          :goal-zdd (make-predicate-zdd 'ggp-rules::goal term->number)
-          :terminal-zdd (make-predicate-zdd 'ggp-rules::terminal term->number)
-          :next-zdd (make-predicate-zdd 'ggp-rules::next term->number)
+          :legal-zdd (make-predicate-zdd '(ggp-rules::legal) term->number)
+          :goal-zdd (make-predicate-zdd '(ggp-rules::goal) term->number)
+          :terminal-zdd (make-predicate-zdd '(ggp-rules::terminal) term->number)
+          :next-zdd (make-predicate-zdd '(ggp-rules::next) term->number)
+          :percept-zdds (iterate
+                          (for role :in roles)
+                          (collect-hash (role . (make-predicate-zdd
+                                                  `(ggp-rules::sees ,role)
+                                                  term->number))
+                                        :test #'equal))
           :term->number term->number
           :number->term number->term)))))
 
@@ -445,20 +459,20 @@
 (defparameter *i* (initial-iset *r*))
 (defparameter *j* (initial-iset *r*))
 
-(with-zdd
-  (-<> *r*
-    (make-iset <>
-               '(
-                 (true (control xplayer))
-                 (true (cell 1 1 B)) (true (cell 1 2 x)) (true (cell 1 3 o))
-                 (true (cell 2 1 B)) (true (cell 2 2 o)) (true (cell 2 3 o))
-                 (true (cell 3 1 x)) (true (cell 3 2 x)) (true (cell 3 3 x))
-                 ))
-    (apply-rule-forest *r* <> (zr-possible-forest *r*))
-    (draw-zdd *r* <>)
-    (dump-iset *r* <>)
-    (no <>)
-    ))
+; (with-zdd
+;   (-<> *r*
+;     (make-iset <>
+;                '(
+;                  (true (control xplayer))
+;                  (true (cell 1 1 B)) (true (cell 1 2 x)) (true (cell 1 3 o))
+;                  (true (cell 2 1 B)) (true (cell 2 2 o)) (true (cell 2 3 o))
+;                  (true (cell 3 1 x)) (true (cell 3 2 x)) (true (cell 3 3 x))
+;                  ))
+;     (apply-rule-forest *r* <> (zr-possible-forest *r*))
+;     (draw-zdd *r* <>)
+;     (dump-iset *r* <>)
+;     (no <>)
+;     ))
 
 
 (defun test ()
