@@ -128,13 +128,13 @@
 
 ;;;; API ----------------------------------------------------------------------
 (defun ground-gdl-string (string)
-  (->> (ground-with-fluxplayer string "-")
-    parse-raw-grounded
-    (apply #'rebuild-rules)))
+  (-<> (ground-with-fluxplayer string "-")
+    (parse-raw-grounded <>)
+    (apply #'rebuild-rules <>)))
 
 (defun ground-gdl-file (filename)
   (-<> (ground-with-fluxplayer "" filename)
-    parse-raw-grounded
+    (parse-raw-grounded <>)
     (apply #'rebuild-rules <>)))
 
 
@@ -149,5 +149,4 @@
 ; (dump-grounded "buttons")
 ; (dump-grounded "8puzzle")
 ; (dump-grounded "tictactoe")
-(dump-grounded "roshambo2")
-; (dump-grounded "hanoi")
+(dump-grounded "pennies")

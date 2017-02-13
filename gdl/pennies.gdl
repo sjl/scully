@@ -1,0 +1,59 @@
+(role alice)
+(role random)
+
+(side tails)
+(side heads)
+
+(init (coin unset))
+(init (coins unset unset))
+(init (control random))
+
+(<= (legal random (choose ?s1 ?s2))
+  (true (control random))
+  (side ?s1) (side ?s2))
+
+(<= (legal ?p noop)
+  (role ?p)
+  (not (true (control ?p))))
+
+(<= (legal alice (play ?s))
+  (true (control alice))
+  (side ?s))
+
+(<= (next (control alice))
+  (true (control random)))
+
+(<= (next (coins ?s1 ?s2))
+  (does ?p (choose ?s1 ?s2)))
+
+(<= (next (coin ?s))
+  (does ?p (play ?s)))
+
+(<= (next (coins ?s1 ?s2))
+  (true (coins ?s1 ?s2))
+  (not (true (control random))))
+
+(<= (next (coin ?s))
+  (true (coin ?s))
+  (not (true (control alice))))
+
+(<= (sees alice (coins ?s1))
+  (true (coins ?s1 ?s2)))
+
+(<= (goal alice 100)
+  (true (coins ?s ?s))
+  (true (coin ?s)))
+
+(<= (goal alice 50)
+  (true (coins ?s1 ?s2))
+  (true (coin ?s1))
+  (distinct ?s1 ?s2))
+
+(<= (goal alice 50)
+  (true (coins ?s1 ?s2))
+  (true (coin ?s2))
+  (distinct ?s1 ?s2))
+
+(<= terminal 
+  (not (true (coin unset)))
+  (not (true (coins unset unset))))

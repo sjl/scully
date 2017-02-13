@@ -70,6 +70,16 @@
   (make-rule-forest (mapcar #'build-stratum strata-list)))
 
 
+;;;; Universes ----------------------------------------------------------------
+(defun make-universe (predicate term->number)
+  (let ((universe (make-array (hash-table-count term->number)
+                    :initial-element nil)))
+    (iterate (for (term number) :in-hashtable term->number)
+             (when (funcall predicate term)
+               (setf (aref universe number) t)))
+    universe))
+
+
 ;;;; Reasoner -----------------------------------------------------------------
 (defclass* (zdd-reasoner :conc-name zr-) ()
   (rules
@@ -81,7 +91,7 @@
    goal-zdd
    terminal-zdd
    next-zdd
-   percept-zdds
+   percept-universes
    possible-forest
    happens-forest))
 
@@ -154,12 +164,14 @@
           :goal-zdd (make-predicate-zdd '(ggp-rules::goal) term->number)
           :terminal-zdd (make-predicate-zdd '(ggp-rules::terminal) term->number)
           :next-zdd (make-predicate-zdd '(ggp-rules::next) term->number)
-          :percept-zdds (iterate
-                          (for role :in roles)
-                          (collect-hash (role . (make-predicate-zdd
-                                                  `(ggp-rules::sees ,role)
-                                                  term->number))
-                                        :test #'equal))
+          :percept-universes
+          (iterate
+            (for role :in roles)
+            (collect-hash (role (make-universe
+                                  (lambda (term)
+                                    (equal (take 2 term)
+                                           `(ggp-rules::sees ,role)))
+                                  term->number))))
           :term->number term->number
           :number->term number->term)))))
 
@@ -440,24 +452,24 @@
 
 ;;;; Scratch ------------------------------------------------------------------
 (defparameter *rules*
-  (scully.gdl::read-gdl "gdl/tictactoe-grounded.gdl"))
+  (scully.gdl::read-gdl "gdl/pennies-grounded.gdl"))
 
-(-<> *rules*
-  (scully.gdl::normalize-rules <>)
-  (scully.terms::integerize-rules <>)
-  ; (nth 2 <>)
-  ; (make-rule-forest <>)
-  ; (scully.terms::print-strata <>)
-  ; (no <>)
-  ; (rest <>)
-  ; (map nil #'print-hash-table <>)
-  )
+; (-<> *rules*
+;   (scully.gdl::normalize-rules <>)
+;   (scully.terms::integerize-rules <>)
+;   ; (nth 2 <>)
+;   ; (make-rule-forest <>)
+;   ; (scully.terms::print-strata <>)
+;   ; (no <>)
+;   ; (rest <>)
+;   ; (map nil #'print-hash-table <>)
+;   )
 
 
 
 (defparameter *r* (make-zdd-reasoner *rules*))
-(defparameter *i* (initial-iset *r*))
-(defparameter *j* (initial-iset *r*))
+; (defparameter *i* (initial-iset *r*))
+; (defparameter *j* (initial-iset *r*))
 
 ; (with-zdd
 ;   (-<> *r*

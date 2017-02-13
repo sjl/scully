@@ -264,7 +264,7 @@
   (zdd-keep-avoiders-of% zdd (sort set #'<)))
 
 
-(defun zdd-match% (zdd set lower-bound upper-bound)
+(defun zdd-match% (zdd set universe)
   (recursively ((zdd zdd) (set set))
     (ematch zdd
       ;; If Z = ∅, there are no candidates for matching.
@@ -313,11 +313,61 @@
                                             ;        jeeeeeeeesus
                                             (sink nil))))))))))))
 
-(defun zdd-match (zdd set lower-bound upper-bound)
+(defun zdd-match% (zdd set universe)
+  (recursively ((zdd zdd) (set set))
+    (ematch zdd
+      ;; If Z = ∅, there are no candidates for matching.
+      ((sink nil) (sink nil))
+
+      ;; If Z = {∅}, the only set ∅ can match is the empty set.
+      ((sink t) (if (null set)
+                  (sink t)
+                  (sink nil)))
+
+      ;; Otherwise Z is a real node.
+      ((node var hi lo)
+       (if (not (aref universe var))
+         ;; If this node is not in the universe, we don't care about it at all.
+         ;; Recur down both branches.
+         (zdd-node var
+                   (recur hi set)
+                   (recur lo set))
+
+         ;; Otherwise this node is in the universe.  Is it in the set we're
+         ;; looking for?
+         (ematch set
+           ;; If our target is empty, only the lo branch of Z can ever match.
+           (nil (recur lo set))
+
+           ;; Otherwise we've got a target element.  Almost there!
+           ((list* element remaining)
+            (cond
+              ;; If we're below the target element, we recur down the lo
+              ;; branch because the hi branch contains something unwanted.
+              ((< var element) (recur lo set))
+              ;; If we're above the target element, we can never match.
+              ((> var element) (sink nil))
+              ;; Otherwise, we recur down the hi branch with the rest of our
+              ;; target (the lo branch is always missing this element).
+              ((= var element) (zdd-node var
+                                         (recur hi remaining)
+                                         ;        jeeeeeeesus
+                                         (sink nil)))))))))))
+
+(defun zdd-match (zdd set universe)
   "Return a ZDD of members that exactly match `set` within the universe.
 
   {α | α ∈ Z and α ∩ U = S}
 
-  "
-  (zdd-match% zdd (sort set #'<) lower-bound upper-bound))
+  `universe` should be an array of booleans, one per possible term.
 
+  "
+  (zdd-match% zdd (sort set #'<) universe))
+
+
+;;;; Scratch ------------------------------------------------------------------
+(defun test ()
+  (with-zdd
+    (let ((z (zdd-set '(2 3 4 5 8))))
+      (enumerate z)
+      (enumerate (zdd-match z '(2 4 8) #(t nil t nil t nil t nil t nil))))))
