@@ -361,8 +361,11 @@
 
   `universe` should be an array of booleans, one per possible term.
 
+  Every element to match in `set` should be a member of the universe.  This is
+  not checked.  `set` does not need to be sorted beforehand.
+
   "
-  (zdd-match% zdd (sort set #'<) universe))
+  (zdd-match% zdd (sort (copy-list set) #'<) universe))
 
 
 ;;;; Scratch ------------------------------------------------------------------

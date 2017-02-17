@@ -199,13 +199,16 @@
 
 
 (defun iset-to-list (reasoner iset)
-  (map-tree (curry #'number-to-term reasoner)
-            (scully.zdd::enumerate iset)))
+  (let ((contents (scully.zdd::enumerate iset)))
+    (if (null contents)
+      nil
+      (map-tree (curry #'number-to-term reasoner) contents))))
 
 (defun dump-iset (reasoner iset)
   (iterate (for i :from 0)
            (for state :in (iset-to-list reasoner iset))
-           (format t "STATE ~D:~%~{    ~S~%~}~2%" i state))
+           (let ((*package* (find-package :ggp-rules)))
+             (format t "STATE ~D:~%~{    ~S~%~}~2%" i state)))
   iset)
 
 
@@ -228,6 +231,14 @@
 (defun roles (reasoner)
   (zr-roles reasoner))
 
+
+(defun filter-iset-for-percepts (reasoner iset role percepts)
+  (let ((universe (gethash role (zr-percept-universes reasoner)))
+        (percepts (mapcar (curry #'term-to-number reasoner) percepts)))
+    (dump-iset reasoner iset)
+    (pr universe)
+    (pr percepts)
+    (zdd-match iset percepts universe)))
 
 ;;;; Drawing ------------------------------------------------------------------
 (defun label (reasoner n)
@@ -466,51 +477,28 @@
 ;   )
 
 
-
 (defparameter *r* (make-zdd-reasoner *rules*))
-; (defparameter *i* (initial-iset *r*))
-; (defparameter *j* (initial-iset *r*))
-
-; (with-zdd
-;   (-<> *r*
-;     (make-iset <>
-;                '(
-;                  (true (control xplayer))
-;                  (true (cell 1 1 B)) (true (cell 1 2 x)) (true (cell 1 3 o))
-;                  (true (cell 2 1 B)) (true (cell 2 2 o)) (true (cell 2 3 o))
-;                  (true (cell 3 1 x)) (true (cell 3 2 x)) (true (cell 3 3 x))
-;                  ))
-;     (apply-rule-forest *r* <> (zr-possible-forest *r*))
-;     (draw-zdd *r* <>)
-;     (dump-iset *r* <>)
-;     (no <>)
-;     ))
-
+(defparameter *i* (initial-iset *r*))
 
 (defun test ()
   (with-zdd
     (-<>
-        (zdd-union
-          (make-iset *r* '(
-                           (true (control oplayer))
-                           (true (cell 1 1 o)) (true (cell 1 2 x)) (true (cell 1 3 x))
-                           (true (cell 2 1 x)) (true (cell 2 2 o)) (true (cell 2 3 b))
-                           (true (cell 3 1 x)) (true (cell 3 2 o)) (true (cell 3 3 b))
-                           ))
-          (make-iset *r* '(
-                           (true (control oplayer))
-                           (true (cell 1 1 o)) (true (cell 1 2 x)) (true (cell 1 3 x))
-                           (true (cell 2 1 x)) (true (cell 2 2 b)) (true (cell 2 3 o))
-                           (true (cell 3 1 x)) (true (cell 3 2 o)) (true (cell 3 3 b))
-                           )))
+        (initial-iset *r*)
       (apply-rule-forest *r* <> (zr-possible-forest *r*))
-      (zdd-join <> (make-iset *r* '((does oplayer (mark 3 3))
-                                    (does xplayer noop))))
+      (zdd-join <> (make-iset *r* '((does random (choose heads heads))
+                                    (does alice noop))))
       (apply-rule-forest *r* <> (zr-happens-forest *r*))
-      (zdd-meet <> (zr-next-zdd *r*))
+      (filter-iset-for-percepts
+        *r* <> 'ggp-rules::alice
+        '((ggp-rules::sees ggp-rules::alice (ggp-rules::coins ggp-rules::unset))
+          (ggp-rules::sees ggp-rules::alice (ggp-rules::coins ggp-rules::heads))))
+      (pr <>)
       (dump-iset *r* <>)
-      (convert-next-to-true *r* <>)
-      (dump-iset *r* <>)
+      ;; (dump-iset *r* <>)
+      ;; (zdd-meet <> (zr-next-zdd *r*))
+      ;; (dump-iset *r* <>)
+      ;; (convert-next-to-true *r* <>)
+      ;; (dump-iset *r* <>)
       (no <>)
       ; (draw-zdd *r* <>)
       )))
