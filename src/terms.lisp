@@ -280,7 +280,7 @@
 (defun integerize-term (term->number term)
   (match term
     (`(ggp-rules::not ,body)
-     `(ggp-rules::not ,(gethash body term->number)))
+     (- (gethash body term->number)))
     (_ (gethash term term->number))))
 
 (defun integerize-rule (term->number rule)
@@ -308,7 +308,7 @@
     (multiple-value-bind (terms possible happens)
         (order-terms rules)
       ;; Generate the mapping tables
-      (iterate (for i :from 0)
+      (iterate (for i :from 1)
                (for term :in terms)
                (setf (gethash i number->term) term
                      (gethash term term->number) i))

@@ -72,7 +72,7 @@
 
 ;;;; Universes ----------------------------------------------------------------
 (defun make-universe (predicate term->number)
-  (let ((universe (make-array (hash-table-count term->number)
+  (let ((universe (make-array (1+ (hash-table-count term->number))
                     :initial-element nil)))
     (iterate (for (term number) :in-hashtable term->number)
              (when (funcall predicate term)
@@ -239,6 +239,7 @@
     (pr universe)
     (pr percepts)
     (zdd-match iset percepts universe)))
+
 
 ;;;; Drawing ------------------------------------------------------------------
 (defun label (reasoner n)
@@ -462,8 +463,8 @@
 
 
 ;;;; Scratch ------------------------------------------------------------------
-(defparameter *rules*
-  (scully.gdl::read-gdl "gdl/pennies-grounded.gdl"))
+(defparameter *rules* (scully.gdl::read-gdl "gdl/meier-grounded.gdl"))
+(defparameter *rules* (scully.gdl::read-gdl "gdl/pennies-grounded.gdl"))
 
 ; (-<> *rules*
 ;   (scully.gdl::normalize-rules <>)
@@ -477,10 +478,11 @@
 ;   )
 
 
+(defparameter *r* nil)
 (defparameter *r* (make-zdd-reasoner *rules*))
 (defparameter *i* (initial-iset *r*))
 
-(defun test ()
+(defun test (
   (with-zdd
     (-<>
         (initial-iset *r*)
@@ -489,16 +491,16 @@
                                     (does alice noop))))
       (apply-rule-forest *r* <> (zr-happens-forest *r*))
       (filter-iset-for-percepts
-        *r* <> 'ggp-rules::alice
-        '((ggp-rules::sees ggp-rules::alice (ggp-rules::coins ggp-rules::unset))
-          (ggp-rules::sees ggp-rules::alice (ggp-rules::coins ggp-rules::heads))))
-      (pr <>)
-      (dump-iset *r* <>)
+        *r* <>
+        'ggp-rules::alice
+        '((ggp-rules::sees ggp-rules::alice (ggp-rules::coins ggp-rules::unset))))
+      ;; (pr <>)
+      ;; (dump-iset *r* <>)
       ;; (dump-iset *r* <>)
       ;; (zdd-meet <> (zr-next-zdd *r*))
       ;; (dump-iset *r* <>)
       ;; (convert-next-to-true *r* <>)
-      ;; (dump-iset *r* <>)
+      (dump-iset *r* <>)
       (no <>)
       ; (draw-zdd *r* <>)
-      )))
+      ))))

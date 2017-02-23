@@ -10,7 +10,8 @@
 
 (<= (legal random (choose ?s1 ?s2))
   (true (control random))
-  (side ?s1) (side ?s2))
+  (side ?s1)
+  (side ?s2))
 
 (<= (legal ?p noop)
   (role ?p)

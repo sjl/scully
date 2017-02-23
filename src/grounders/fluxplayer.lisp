@@ -70,9 +70,9 @@
           (id (.whitespace-and (.positive-integer)))
           (term-count (.whitespace-and (.positive-integer)))
           (negative-term-count (.whitespace-and (.positive-integer)))
-          (positive-terms (.repeat (- term-count negative-term-count)
-                                   (.whitespace-and (.positive-integer))))
           (negative-terms (.repeat negative-term-count
+                                   (.whitespace-and (.positive-integer))))
+          (positive-terms (.repeat (- term-count negative-term-count)
                                    (.whitespace-and (.positive-integer))))
           (_ (.char= #\newline)))
     (.identity (make-rule :id id
@@ -104,17 +104,22 @@
              (setf (gethash (index-entry-id entry) index)
                    (index-entry-term entry)))
     (flet ((get-rule (id)
-             (ensure-gethash id index (scully.gdl:gensym-ggp))))
+             (ensure-gethash id index (scully.gdl:gensym-ggp)))
+           (useless-rule-p (has-name pos neg)
+             (and (not has-name)
+                  (null pos)
+                  (null neg))))
       (iterate
         (for entry :in rule-entries)
-        (for rule = (get-rule (rule-id entry)))
+        (for (values rule has-name) = (get-rule (rule-id entry)))
         (for pos = (mapcar #'get-rule (rule-positive entry)))
         (for neg = (mapcar #'get-rule (rule-negative entry)))
-        (collect (if (or pos neg)
-                   `(ggp-rules::<= ,rule
-                     ,@pos
-                     ,@(mapcar (curry #'list 'ggp-rules::not) neg))
-                   (ensure-list rule)))))))
+        (unless (useless-rule-p has-name pos neg)
+          (collect (if (or pos neg)
+                     `(ggp-rules::<= ,rule
+                        ,@pos
+                        ,@(mapcar (curry #'list 'ggp-rules::not) neg))
+                     (ensure-list rule))))))))
 
 
 ;;;; Fluxplayer ---------------------------------------------------------------
@@ -149,4 +154,7 @@
 ; (dump-grounded "buttons")
 ; (dump-grounded "8puzzle")
 ; (dump-grounded "tictactoe")
+
 (dump-grounded "pennies")
+
+;; (dump-grounded "meier")

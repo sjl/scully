@@ -2,6 +2,10 @@
 (in-readtable :fare-quasiquote)
 
 ;;;; Rule Trees ---------------------------------------------------------------
+(defun abs< (x y)
+  (declare (type fixnum x y))
+  (< (abs x) (abs y)))
+
 (adt:defdata rule-tree
   (node t rule-tree rule-tree)
   (top t)
@@ -24,7 +28,9 @@
   Each body in `bodies` must already be sorted.  No body should be empty.
 
   "
-  (first (extremum bodies #'term< :key #'first)))
+  (iterate (for body :in bodies)
+           (for term = (the fixnum (first body)))
+           (minimizing (abs term))))
 
 (defun partition (bodies)
   "Partition `bodies` into exclusive groups based on the smallest element.
@@ -39,20 +45,16 @@
   4. All bodies that DON'T CARE about that element.
 
   "
-  (let* ((element (bare-term (find-smallest-body-term bodies)))
-         (negation `(ggp-rules::not ,element)))
-    (labels
-        ((disallows (body)
-           (equal (first body) negation))
-         (requires (body)
-           (equal (first body) element))
-         (ignores (body)
-           (not (or (requires body)
-                    (disallows body)))))
-      (values element
-              (remove-if-not #'disallows bodies)
-              (remove-if-not #'requires bodies)
-              (remove-if-not #'ignores bodies)))))
+  (iterate
+    (with element = (the fixnum (find-smallest-body-term bodies)))
+    (with negation = (the fixnum (- element)))
+    (for body :in bodies)
+    (for term = (the fixnum (first body)))
+    (cond
+      ((= term element) (collect body :into requires))
+      ((= term negation) (collect body :into disallows))
+      (t (collect body :into ignores)))
+    (finally (return (values element disallows requires ignores)))))
 
 
 (defun make-node (cache term hi lo)
