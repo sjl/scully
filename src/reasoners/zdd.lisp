@@ -190,6 +190,54 @@
                     (recur lo))))))))
 
 
+;;;; Sprouting ----------------------------------------------------------------
+(defun sprout-extend (reasoner legal-moves)
+  (let* ((moves (-<> legal-moves
+                  (group-by #'second <>)
+                  hash-table-values
+                  (mapcar (lambda (role-moves)
+                            (mapcar (curry #'term-to-number reasoner) role-moves))
+                          <>)))
+         (combinations (gathering
+                         (apply #'map-product
+                                (compose #'gather #'list)
+                                moves))))
+    (apply #'zdd-family combinations)))
+
+(defun sprout-traverse (reasoner iset)
+  (recursively ((z iset)
+                (legal-moves '()))
+    (ematch z
+      ;; If we hit the empty sink, just bail, there's nothing to add on to.
+      ((sink nil) (sink nil))
+      ;; If we hit the unit sink we're ready to sprout off the `does`es.
+      ((sink t) (sprout-extend reasoner legal-moves))
+      ;; Otherwise we're at a node.
+      ((node n hi lo)
+       (match (number-to-term reasoner n)
+         ;; If the term is a legal move, we add it into the list when recuring
+         ;; down the hi branch.
+         (`(ggp-rules::legal ,role ,move)
+          (zdd-node n
+                    (recur hi (cons `(ggp-rules::does ,role ,move) legal-moves))
+                    (recur lo legal-moves)))
+         ;; Otherwise we just recur down both.
+         (_ (zdd-node n (recur hi legal-moves) (recur lo legal-moves))))))))
+
+(defun sprout (reasoner iset)
+  "Sprout off child states for each state in `iset` for all legal moves."
+  ;; Given an information set, we want to compute a new information set with all
+  ;; possible combinations of `does` added, which we'll narrow down later once
+  ;; we get the percepts back from the server.
+  ;;
+  ;; This is going to happen right after we calculate the possible layer, and
+  ;; will result in the appropriate things in the does layer being added.
+  ;;
+  ;; To do this we'll traverse the ZDD recursively, accumulating a list of all
+  ;; legal moves for each player as we go.  Once we hit a sink we'll tack on
+  ;; a child ZDD of all the possible combos.
+  (sprout-traverse reasoner iset))
+
 ;;;; Basic API ----------------------------------------------------------------
 (defun number-to-term (reasoner number)
   (gethash number (zr-number->term reasoner)))
@@ -484,13 +532,12 @@
     (-<>
         (initial-iset *r*)
       (apply-rule-forest *r* <> (zr-possible-forest *r*))
-      (zdd-join <> (make-iset *r* '((does random (choose heads heads))
-                                    (does alice noop))))
+      (sprout *r* <>)
       (apply-rule-forest *r* <> (zr-happens-forest *r*))
-      (filter-iset-for-percepts
-        *r* <>
-        'ggp-rules::alice
-        '((ggp-rules::sees ggp-rules::alice (ggp-rules::coins ggp-rules::unset))))
+      ;; (filter-iset-for-percepts
+      ;;   *r* <>
+      ;;   'ggp-rules::alice
+      ;;   '((ggp-rules::sees ggp-rules::alice (ggp-rules::coins ggp-rules::unset))))
       ;; (pr <>)
       ;; (dump-iset *r* <>)
       ;; (dump-iset *r* <>)
