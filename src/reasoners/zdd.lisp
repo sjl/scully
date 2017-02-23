@@ -238,6 +238,7 @@
   ;; a child ZDD of all the possible combos.
   (sprout-traverse reasoner iset))
 
+
 ;;;; Basic API ----------------------------------------------------------------
 (defun number-to-term (reasoner number)
   (gethash number (zr-number->term reasoner)))
