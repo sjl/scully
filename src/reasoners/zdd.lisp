@@ -482,7 +482,7 @@
 (defparameter *r* (make-zdd-reasoner *rules*))
 (defparameter *i* (initial-iset *r*))
 
-(defun test (
+(defun test ()
   (with-zdd
     (-<>
         (initial-iset *r*)
@@ -503,4 +503,4 @@
       (dump-iset *r* <>)
       (no <>)
       ; (draw-zdd *r* <>)
-      ))))
+      )))
