@@ -80,6 +80,35 @@
              (mark layers layer term)
              (collect term))))
 
+(defun extract-complicated
+    (layer previous-layers layers dependencies terms)
+  "Extract terms for a given `layer` from `terms`.
+
+  Extracts all terms in `terms` that depend only on things in `previous-layers`
+  and add them into the `layers` table under `layer`.
+
+  Returns a list of remaining terms.
+
+  "
+  (labels ((find-dependencies (term)
+             "Return the layers of each of `term`s dependencies."
+             (mapcar (rcurry #'gethash layers)
+                     (digraph:successors dependencies term)))
+           (find-eligible (terms)
+             "Find terms that depend only on things in `previous-layers`."
+             (iterate (for term :in terms)
+                      (for unmet = (set-difference (find-dependencies term)
+                                                   previous-layers))
+                      (when (null unmet)
+                        (collect term)))))
+    (iterate
+      (with remaining = terms)
+      (for next = (find-eligible remaining))
+      (while next)
+      (mapcar (curry #'mark layers layer) next)
+      (zapf remaining (set-difference % next :test #'equal))
+      (finally (return remaining)))))
+
 
 (defun extract-base (layers terms)
   (let ((terms (extract-simple '(ggp-rules::true
@@ -106,26 +135,6 @@
                (_ (collect term))))))
 
 
-(defun extract-possible% (layers dependencies terms)
-  (labels ((find-dependencies (term)
-             "Return the layers of each of `term`s dependencies."
-             (mapcar (rcurry #'gethash layers)
-                     (digraph:successors dependencies term)))
-           (find-eligible (terms)
-             "Find terms that depend only on things in `:base`/`:possible`."
-             (iterate (for term :in terms)
-                      (for unmet = (set-difference (find-dependencies term)
-                                                   '(:base :possible)))
-                      (when (null unmet)
-                        (collect term)))))
-    (iterate
-      (with remaining = terms)
-      (for next = (find-eligible remaining))
-      (while next)
-      (mapcar (curry #'mark layers :possible) next)
-      (zapf remaining (set-difference % next :test #'equal))
-      (finally (return remaining)))))
-
 (defun extract-possible (layers dependencies terms)
   ;; At this point we've got the :base and :does layers finished.  We then
   ;; extract the simple things for the :possible layer.
@@ -133,18 +142,16 @@
   ;; Once we've done this, rules that depend on ONLY things in the
   ;; :base/:possible layers can also be extracted.
   (-<> terms
-    (extract-simple '(ggp-rules::legal
-                      ggp-rules::goal
-                      ggp-rules::terminal)
+    (extract-simple '(ggp-rules::legal ggp-rules::goal ggp-rules::terminal)
                     :possible layers <>)
-    (extract-possible% layers dependencies <>)))
+    (extract-complicated :possible '(:base :possible)
+                         layers dependencies <>)))
 
 
 (defun extract-early-happens (layers terms)
   ;; We need to extract these early because we don't want them to get included
   ;; in the `:possible` layer if they don't depend on anything.
-  (extract-simple '(ggp-rules::sees
-                    ggp-rules::next)
+  (extract-simple '(ggp-rules::sees ggp-rules::next)
                   :happens layers terms))
 
 (defun extract-final-happens (layers terms)
@@ -325,7 +332,7 @@
     (ggp-rules::<= x (ggp-rules::true a))
     (ggp-rules::<= x (ggp-rules::true b))
     (ggp-rules::<= (ggp-rules::next a)
-                   (ggp-rules::true dangus))
+                   (ggp-rules::true foo))
     (ggp-rules::<= z (ggp-rules::does c x))
     (ggp-rules::<= (ggp-rules::next b)
                    (ggp-rules::not z))
@@ -337,12 +344,13 @@
            (format t "STRATUM ~D:~%~{    ~S~%~}~2%"
                    i stratum)))
 
-(-<> *rules*
-  (normalize-rules <>)
-  (integerize-rules <>)
-  ; (nth 2 <>)
-  ; (print-strata <>)
-  (no <>)
-  ; (rest <>)
-  ; (map nil #'print-hash-table <>)
-  )
+(defun test ()
+  (-<> *rules*
+    (normalize-rules <>)
+    (integerize-rules <>)
+    (nth 2 <>)
+    ;; (pr <>)
+    (print-strata <>)
+    ;; (rest <>)
+    ;; (map nil #'print-hash-table <>)
+    (no <>)))

@@ -235,9 +235,6 @@
 (defun filter-iset-for-percepts (reasoner iset role percepts)
   (let ((universe (gethash role (zr-percept-universes reasoner)))
         (percepts (mapcar (curry #'term-to-number reasoner) percepts)))
-    (dump-iset reasoner iset)
-    (pr universe)
-    (pr percepts)
     (zdd-match iset percepts universe)))
 
 
