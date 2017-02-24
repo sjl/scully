@@ -64,7 +64,7 @@
                     (node term hi lo))))
 
 (defun sort-body (body)
-  (sort body #'term<))
+  (sort body #'abs<))
 
 (defun make-rule-tree (rules)
   "Make a rule tree for `rules`.

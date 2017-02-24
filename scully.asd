@@ -40,8 +40,7 @@
                               :components ((:file "prolog")
                                            (:file "zdd")))
                              (:module "grounders" :serial t
-                              :components ((:file "prolog")
-                                           (:file "fluxplayer")))
+                              :components ((:file "fluxplayer")))
                              (:module "players" :serial t
                               :components ((:file "random")
                                            (:file "random-ii")))))))

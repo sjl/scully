@@ -79,9 +79,6 @@
   (`(ggp-rules::not (,predicate ,@_)) predicate)
   (`(,predicate ,@_) predicate))
 
-(defun term< (a b &optional (predicate #'<))
-  (funcall predicate (bare-term a) (bare-term b)))
-
 
 (defun-ematch rule-head (rule)
   (`(,head ,@_) head))

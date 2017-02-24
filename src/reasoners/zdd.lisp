@@ -92,6 +92,7 @@
    terminal-zdd
    next-zdd
    percept-universes
+   does-universes
    possible-forest
    happens-forest))
 
@@ -171,6 +172,14 @@
                                   (lambda (term)
                                     (equal (take 2 term)
                                            `(ggp-rules::sees ,role)))
+                                  term->number))))
+          :does-universes
+          (iterate
+            (for role :in roles)
+            (collect-hash (role (make-universe
+                                  (lambda (term)
+                                    (equal (take 2 term)
+                                           `(ggp-rules::does ,role)))
                                   term->number))))
           :term->number term->number
           :number->term number->term)))))
@@ -286,6 +295,11 @@
         (percepts (mapcar (curry #'term-to-number reasoner) percepts)))
     (zdd-match iset percepts universe)))
 
+(defun filter-iset-for-move (reasoner iset role move)
+  (let ((universe (gethash role (zr-does-universes reasoner)))
+        (moves (list (term-to-number reasoner `(ggp-rules::does ,role ,move)))))
+    (zdd-match iset moves universe)))
+
 
 ;;;; Drawing ------------------------------------------------------------------
 (defun label (reasoner n)
@@ -295,13 +309,15 @@
                         *reasoner*
                         reasoner)
                       <>)
-      (structural-string <>))))
+      (format nil "~D ~S" n <>))))
 
 (defun draw-zdd (reasoner zdd)
   (scully.graphviz::draw-zdd zdd :label-fn (curry #'label reasoner)))
 
-(defun draw-rule-tree (reasoner rule-tree)
-  (scully.graphviz::draw-rule-tree rule-tree :label-fn (curry #'label reasoner)))
+(defun draw-rule-tree (reasoner rule-tree &optional (filename "rule-tree.png"))
+  (scully.graphviz::draw-rule-tree rule-tree
+                                   :label-fn (curry #'label reasoner)
+                                   :filename filename))
 
 
 ;;;; Logic Application --------------------------------------------------------
@@ -528,24 +544,42 @@
 (defparameter *r* (make-zdd-reasoner *rules*))
 (defparameter *i* (initial-iset *r*))
 
-(defun test ()
-  (with-zdd
-    (-<>
-        (initial-iset *r*)
-      (apply-rule-forest *r* <> (zr-possible-forest *r*))
-      (sprout *r* <>)
-      (apply-rule-forest *r* <> (zr-happens-forest *r*))
-      ;; (filter-iset-for-percepts
-      ;;   *r* <>
-      ;;   'ggp-rules::alice
-      ;;   '((ggp-rules::sees ggp-rules::alice (ggp-rules::coins ggp-rules::unset))))
-      ;; (pr <>)
-      ;; (dump-iset *r* <>)
-      ;; (dump-iset *r* <>)
-      ;; (zdd-meet <> (zr-next-zdd *r*))
-      ;; (dump-iset *r* <>)
-      ;; (convert-next-to-true *r* <>)
-      (dump-iset *r* <>)
-      (no <>)
-      ; (draw-zdd *r* <>)
-      )))
+;; (defun test ()
+;;   (with-zdd
+;;     (-<>
+;;         (initial-iset *r*)
+
+;;       (apply-rule-forest *r* <> (zr-possible-forest *r*))
+;;       (sprout *r* <>)
+;;       (apply-rule-forest *r* <> (zr-happens-forest *r*))
+;;       (filter-iset-for-percepts
+;;         *r* <>
+;;         'ggp-rules::alice
+;;         '((ggp-rules::sees ggp-rules::alice (ggp-rules::coins ggp-rules::unset))))
+;;       (filter-iset-for-move
+;;          *r* <>
+;;         'ggp-rules::alice
+;;         'ggp-rules::noop)
+;;       (zdd-meet <> (zr-next-zdd *r*))
+;;       (convert-next-to-true *r* <>)
+
+;;       (apply-rule-forest *r* <> (zr-possible-forest *r*))
+;;       (sprout *r* <>)
+;;       (apply-rule-forest *r* <> (zr-happens-forest *r*))
+;;       (filter-iset-for-move
+;;          *r* <>
+;;         'ggp-rules::alice
+;;         '(ggp-rules::play ggp-rules::tails))
+;;       (filter-iset-for-percepts
+;;         *r* <>
+;;         'ggp-rules::alice
+;;         '((ggp-rules::sees ggp-rules::alice (ggp-rules::coins ggp-rules::heads))))
+;;       (zdd-meet <> (zr-next-zdd *r*))
+;;       (convert-next-to-true *r* <>)
+
+;;       (apply-rule-forest *r* <> (zr-possible-forest *r*))
+
+;;       (dump-iset *r* <>)
+;;       (no <>)
+;;       ; (draw-zdd *r* <>)
+;;       )))
