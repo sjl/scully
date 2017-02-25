@@ -301,6 +301,12 @@
     (zdd-match iset moves universe)))
 
 
+(defun compute-next-iset (reasoner iset)
+  (-<> iset
+    (zdd-meet <> (zr-next-zdd *r*))
+    (convert-next-to-true *r* <>)))
+
+
 ;;;; Drawing ------------------------------------------------------------------
 (defun label (reasoner n)
   (let ((*package* (find-package :ggp-rules)))
@@ -544,42 +550,40 @@
 (defparameter *r* (make-zdd-reasoner *rules*))
 (defparameter *i* (initial-iset *r*))
 
-;; (defun test ()
-;;   (with-zdd
-;;     (-<>
-;;         (initial-iset *r*)
+(defun test ()
+  (with-zdd
+    (-<>
+        (initial-iset *r*)
 
-;;       (apply-rule-forest *r* <> (zr-possible-forest *r*))
-;;       (sprout *r* <>)
-;;       (apply-rule-forest *r* <> (zr-happens-forest *r*))
-;;       (filter-iset-for-percepts
-;;         *r* <>
-;;         'ggp-rules::alice
-;;         '((ggp-rules::sees ggp-rules::alice (ggp-rules::coins ggp-rules::unset))))
-;;       (filter-iset-for-move
-;;          *r* <>
-;;         'ggp-rules::alice
-;;         'ggp-rules::noop)
-;;       (zdd-meet <> (zr-next-zdd *r*))
-;;       (convert-next-to-true *r* <>)
+      (apply-rule-forest *r* <> (zr-possible-forest *r*))
+      (sprout *r* <>)
+      (apply-rule-forest *r* <> (zr-happens-forest *r*))
+      (filter-iset-for-percepts
+        *r* <>
+        'ggp-rules::alice
+        '((ggp-rules::sees ggp-rules::alice (ggp-rules::coins ggp-rules::unset))))
+      (filter-iset-for-move
+         *r* <>
+        'ggp-rules::alice
+        'ggp-rules::noop)
+      (compute-next-iset *r* <>)
 
-;;       (apply-rule-forest *r* <> (zr-possible-forest *r*))
-;;       (sprout *r* <>)
-;;       (apply-rule-forest *r* <> (zr-happens-forest *r*))
-;;       (filter-iset-for-move
-;;          *r* <>
-;;         'ggp-rules::alice
-;;         '(ggp-rules::play ggp-rules::tails))
-;;       (filter-iset-for-percepts
-;;         *r* <>
-;;         'ggp-rules::alice
-;;         '((ggp-rules::sees ggp-rules::alice (ggp-rules::coins ggp-rules::heads))))
-;;       (zdd-meet <> (zr-next-zdd *r*))
-;;       (convert-next-to-true *r* <>)
+      (apply-rule-forest *r* <> (zr-possible-forest *r*))
+      (sprout *r* <>)
+      (apply-rule-forest *r* <> (zr-happens-forest *r*))
+      (filter-iset-for-move
+         *r* <>
+        'ggp-rules::alice
+        '(ggp-rules::play ggp-rules::tails))
+      (filter-iset-for-percepts
+        *r* <>
+        'ggp-rules::alice
+        '((ggp-rules::sees ggp-rules::alice (ggp-rules::coins ggp-rules::heads))))
+      (compute-next-iset *r* <>)
 
-;;       (apply-rule-forest *r* <> (zr-possible-forest *r*))
+      (apply-rule-forest *r* <> (zr-possible-forest *r*))
 
-;;       (dump-iset *r* <>)
-;;       (no <>)
-;;       ; (draw-zdd *r* <>)
-;;       )))
+      (dump-iset *r* <>)
+      (no <>)
+      ; (draw-zdd *r* <>)
+      )))
