@@ -55,6 +55,11 @@
   (true (coin ?s2))
   (distinct ?s1 ?s2))
 
+(<= (goal alice 00)
+  (true (coins ?s1 ?s1))
+  (true (coin ?s2))
+  (distinct ?s1 ?s2))
+
 (<= terminal 
   (not (true (coin unset)))
   (not (true (coins unset unset))))

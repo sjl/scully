@@ -125,7 +125,21 @@
     :scully.zdd
     :scully.quickutils)
   (:shadowing-import-from :losh
-    :<>))
+    :<>)
+  (:export
+    :make-zdd-reasoner
+    :initial-iset
+    :rand-state
+    :terminalp
+    :roles
+    :filter-iset-for-percepts
+    :filter-iset-for-move
+    :compute-next-iset
+    :apply-happens
+    :apply-possible
+    :sprout
+    )
+  )
 
 
 (defpackage :scully.grounders.prolog
@@ -168,5 +182,14 @@
     :iterate
     :scully.quickutils
     :scully.reasoners.prolog)
+  (:export
+    ))
+(defpackage :scully.players.random-zdd
+  (:use
+    :cl
+    :losh
+    :iterate
+    :scully.quickutils
+    :scully.reasoners.zdd)
   (:export
     ))

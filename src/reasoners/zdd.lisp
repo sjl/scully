@@ -87,8 +87,8 @@
    term->number
    number->term
    initial-zdd
-   legal-zdd
-   goal-zdd
+   legal-zdds
+   goal-zdds
    terminal-zdd
    next-zdd
    percept-universes
@@ -161,8 +161,16 @@
           :possible-forest (build-rule-forest possible)
           :happens-forest (build-rule-forest happens)
           :initial-zdd (zdd-set (find-initial-state rules term->number))
-          :legal-zdd (make-predicate-zdd '(ggp-rules::legal) term->number)
-          :goal-zdd (make-predicate-zdd '(ggp-rules::goal) term->number)
+          :legal-zdds (iterate
+                        (for role :in roles)
+                        (collect-hash
+                          (role (make-predicate-zdd `(ggp-rules::legal ,role)
+                                                    term->number))))
+          :goal-zdds (iterate
+                        (for role :in roles)
+                        (collect-hash
+                          (role (make-predicate-zdd `(ggp-rules::goal ,role)
+                                                    term->number))))
           :terminal-zdd (make-predicate-zdd '(ggp-rules::terminal) term->number)
           :next-zdd (make-predicate-zdd '(ggp-rules::next) term->number)
           :percept-universes
@@ -286,6 +294,23 @@
     zdd-unit-p
     not))
 
+(defun legal-moves-for (reasoner iset role)
+  (-<> iset
+    (zdd-meet <> (gethash role (zr-legal-zdds reasoner)))
+    zdd-random-member
+    (mapcar (curry #'number-to-term reasoner) <>)
+    (mapcar #'third <>)))
+
+(defun goal-values-for (reasoner iset role)
+  (-<> iset
+    (zdd-meet <> (gethash role (zr-goal-zdds reasoner)))
+    enumerate
+    (mapcar #'first <>)
+    remove-duplicates
+    (mapcar (curry #'number-to-term reasoner) <>)
+    (mapcar #'third <>)))
+
+
 (defun roles (reasoner)
   (zr-roles reasoner))
 
@@ -303,8 +328,15 @@
 
 (defun compute-next-iset (reasoner iset)
   (-<> iset
-    (zdd-meet <> (zr-next-zdd *r*))
-    (convert-next-to-true *r* <>)))
+    (zdd-meet <> (zr-next-zdd reasoner))
+    (convert-next-to-true reasoner <>)))
+
+
+(defun apply-possible (reasoner iset)
+  (apply-rule-forest reasoner iset (zr-possible-forest reasoner)))
+
+(defun apply-happens (reasoner iset)
+  (apply-rule-forest reasoner iset (zr-happens-forest reasoner)))
 
 
 ;;;; Drawing ------------------------------------------------------------------
@@ -555,9 +587,9 @@
     (-<>
         (initial-iset *r*)
 
-      (apply-rule-forest *r* <> (zr-possible-forest *r*))
+      (apply-possible *r* <>)
       (sprout *r* <>)
-      (apply-rule-forest *r* <> (zr-happens-forest *r*))
+      (apply-happens *r* <>)
       (filter-iset-for-percepts
         *r* <>
         'ggp-rules::alice
@@ -568,9 +600,9 @@
         'ggp-rules::noop)
       (compute-next-iset *r* <>)
 
-      (apply-rule-forest *r* <> (zr-possible-forest *r*))
+      (apply-possible *r* <>)
       (sprout *r* <>)
-      (apply-rule-forest *r* <> (zr-happens-forest *r*))
+      (apply-happens *r* <>)
       (filter-iset-for-move
          *r* <>
         'ggp-rules::alice
@@ -581,9 +613,11 @@
         '((ggp-rules::sees ggp-rules::alice (ggp-rules::coins ggp-rules::heads))))
       (compute-next-iset *r* <>)
 
-      (apply-rule-forest *r* <> (zr-possible-forest *r*))
+      (apply-possible *r* <>)
 
-      (dump-iset *r* <>)
+      (pr (goal-values-for *r* <> 'ggp-rules::alice))
+
+      ;; (dump-iset *r* <>)
       (no <>)
       ; (draw-zdd *r* <>)
       )))
