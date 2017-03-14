@@ -9,6 +9,6 @@
 
 Scully is a [General Game Player][ggp] for incomplete-information games.
 
-* **License:** MIT/X11
+* **License:** MIT
 
 [ggp]: https://en.wikipedia.org/wiki/General_game_playing
