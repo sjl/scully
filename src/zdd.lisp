@@ -57,7 +57,7 @@
     ((node _ hi lo) (+ (zdd-count hi)
                        (zdd-count lo)))))
 
-(defun zdd-size (zdd)
+(defun zdd-node-count (zdd)
   "Return the number of unique nodes in `zdd`."
   (let ((seen (make-hash-table :test 'eq)))
     (recursively ((zdd zdd))

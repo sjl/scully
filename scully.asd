@@ -43,5 +43,6 @@
                               :components ((:file "fluxplayer")))
                              (:module "players" :serial t
                               :components ((:file "random")
-                                           (:file "random-ii")))))))
+                                           (:file "random-ii")
+                                           (:file "random-zdd")))))))
 

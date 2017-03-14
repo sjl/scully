@@ -13,7 +13,7 @@
 
 (defmethod ggp:player-start-game ((player random-player) rules role timeout)
   (let ((reasoner (make-prolog-reasoner)))
-    (load-rules reasoner (-> rules
+    (load-rules reasoner (-<> rules
                            scully.gdl:dump-gdl
                            scully.grounders.fluxplayer:ground-gdl-string))
     (setf (rp-role player) role
@@ -42,5 +42,5 @@
                                        :name "Scully-Random"
                                        :port 5001))
 
-; (ggp:start-player *random-player* :server :hunchentoot)
-; (ggp:kill-player *random-player*)
+;; (ggp:start-player *random-player* :server :hunchentoot)
+;; (ggp:kill-player *random-player*)

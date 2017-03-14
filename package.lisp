@@ -54,7 +54,7 @@
     :zdd-empty-p
     :zdd-unit-p
     :zdd-count
-    :zdd-size
+    :zdd-node-count
     :zdd-random-member
     :zdd-set
     :zdd-union
@@ -138,6 +138,9 @@
     :apply-happens
     :apply-possible
     :sprout
+    :dump-iset
+    :legal-moves-for
+    :goal-values-for
     )
   )
 
@@ -190,6 +193,8 @@
     :losh
     :iterate
     :scully.quickutils
+    :scully.gdl
+    :scully.grounders.fluxplayer
     :scully.reasoners.zdd)
   (:export
     ))

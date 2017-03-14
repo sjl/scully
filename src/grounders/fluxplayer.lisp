@@ -155,6 +155,6 @@
 ; (dump-grounded "8puzzle")
 ; (dump-grounded "tictactoe")
 
-(dump-grounded "pennies")
+(dump-grounded "montyhall")
 
 ;; (dump-grounded "meier")

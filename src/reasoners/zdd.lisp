@@ -271,7 +271,7 @@
       (map-tree (curry #'number-to-term reasoner) contents))))
 
 (defun dump-iset (reasoner iset)
-  (iterate (for i :from 0)
+  (iterate (for i :from 1)
            (for state :in (iset-to-list reasoner iset))
            (let ((*package* (find-package :ggp-rules)))
              (format t "STATE ~D:~%~{    ~S~%~}~2%" i state)))
@@ -316,8 +316,10 @@
 
 
 (defun filter-iset-for-percepts (reasoner iset role percepts)
-  (let ((universe (gethash role (zr-percept-universes reasoner)))
-        (percepts (mapcar (curry #'term-to-number reasoner) percepts)))
+  (let* ((universe (gethash role (zr-percept-universes reasoner)))
+         (full-percepts (iterate (for p :in percepts)
+                                 (collect `(ggp-rules::sees ,role ,p))))
+         (percepts (mapcar (curry #'term-to-number reasoner) full-percepts)))
     (zdd-match iset percepts universe)))
 
 (defun filter-iset-for-move (reasoner iset role move)
@@ -565,18 +567,7 @@
 ;;;; Scratch ------------------------------------------------------------------
 (defparameter *rules* (scully.gdl::read-gdl "gdl/meier-grounded.gdl"))
 (defparameter *rules* (scully.gdl::read-gdl "gdl/pennies-grounded.gdl"))
-
-; (-<> *rules*
-;   (scully.gdl::normalize-rules <>)
-;   (scully.terms::integerize-rules <>)
-;   ; (nth 2 <>)
-;   ; (make-rule-forest <>)
-;   ; (scully.terms::print-strata <>)
-;   ; (no <>)
-;   ; (rest <>)
-;   ; (map nil #'print-hash-table <>)
-;   )
-
+(defparameter *rules* (scully.gdl::read-gdl "gdl/montyhall-grounded.gdl"))
 
 (defparameter *r* nil)
 (defparameter *r* (make-zdd-reasoner *rules*))
@@ -590,34 +581,17 @@
       (apply-possible *r* <>)
       (sprout *r* <>)
       (apply-happens *r* <>)
+      (filter-iset-for-move
+        *r* <>
+        'ggp-rules::candidate
+        '(ggp-rules::choose 3))
       (filter-iset-for-percepts
         *r* <>
-        'ggp-rules::alice
-        '((ggp-rules::sees ggp-rules::alice (ggp-rules::coins ggp-rules::unset))))
-      (filter-iset-for-move
-         *r* <>
-        'ggp-rules::alice
-        'ggp-rules::noop)
+        'ggp-rules::candidate
+        '((ggp-rules::does ggp-rules::candidate (ggp-rules::choose 3))))
       (compute-next-iset *r* <>)
 
-      (apply-possible *r* <>)
-      (sprout *r* <>)
-      (apply-happens *r* <>)
-      (filter-iset-for-move
-         *r* <>
-        'ggp-rules::alice
-        '(ggp-rules::play ggp-rules::tails))
-      (filter-iset-for-percepts
-        *r* <>
-        'ggp-rules::alice
-        '((ggp-rules::sees ggp-rules::alice (ggp-rules::coins ggp-rules::heads))))
-      (compute-next-iset *r* <>)
-
-      (apply-possible *r* <>)
-
-      (pr (goal-values-for *r* <> 'ggp-rules::alice))
-
-      ;; (dump-iset *r* <>)
+      (dump-iset *r* <>)
       (no <>)
       ; (draw-zdd *r* <>)
       )))
