@@ -12,7 +12,6 @@
     atom))
 
 (defun make-iset (reasoner contents)
-  ; (print-hash-table (zr-term->number reasoner))
   (zdd-set (mapcar (curry #'term-to-number reasoner)
                    (map-tree #'find-ggp-symbol contents))))
 
@@ -154,6 +153,7 @@
          (roles (find-roles rules)))
     (destructuring-bind (term->number number->term possible happens)
         (scully.terms::integerize-rules rules)
+      ;; (print-hash-table number->term)
       (with-zdd
         (make-instance 'zdd-reasoner
           :rules rules
@@ -167,10 +167,10 @@
                           (role (make-predicate-zdd `(ggp-rules::legal ,role)
                                                     term->number))))
           :goal-zdds (iterate
-                        (for role :in roles)
-                        (collect-hash
-                          (role (make-predicate-zdd `(ggp-rules::goal ,role)
-                                                    term->number))))
+                       (for role :in roles)
+                       (collect-hash
+                         (role (make-predicate-zdd `(ggp-rules::goal ,role)
+                                                   term->number))))
           :terminal-zdd (make-predicate-zdd '(ggp-rules::terminal) term->number)
           :next-zdd (make-predicate-zdd '(ggp-rules::next) term->number)
           :percept-universes
@@ -568,10 +568,11 @@
 (defparameter *rules* (scully.gdl::read-gdl "gdl/meier-grounded.gdl"))
 (defparameter *rules* (scully.gdl::read-gdl "gdl/pennies-grounded.gdl"))
 (defparameter *rules* (scully.gdl::read-gdl "gdl/montyhall-grounded.gdl"))
+(defparameter *rules* (scully.gdl::read-gdl "gdl/meier-grounded.gdl"))
+(defparameter *rules* (scully.gdl::read-gdl "gdl/kriegTTT_5x5-grounded.gdl"))
 
 (defparameter *r* nil)
-(defparameter *r* (make-zdd-reasoner *rules*))
-(defparameter *i* (initial-iset *r*))
+;; (defparameter *r* (make-zdd-reasoner *rules*))
 
 (defun test ()
   (with-zdd

@@ -1,0 +1,92 @@
+(role duke) (role earl) (role random)
+(init (control random))
+(init (deck duke 0 copper)) (init (deck duke 1 copper)) (init (deck duke 2 copper)) (init (deck duke 3 copper)) (init (deck duke 4 estate)) (init (deck duke 5 estate)) (init (decksize duke 5)) (init (victory duke 2)) (init (deck earl 0 copper)) (init (deck earl 1 copper)) (init (deck earl 2 copper)) (init (deck earl 3 copper)) (init (deck earl 4 estate)) (init (deck earl 5 estate)) (init (decksize earl 5)) (init (victory earl 2))
+(init (table 10 estate)) (init (table 5 duchy)) (init (table 30 copper)) (init (table 5 silver))
+(value copper 1) (value silver 2) (value estate 0) (value duchy 0)
+(points estate 1) (points duchy 4) (points copper 0) (points silver 0)
+(cost copper 0) (cost silver 2) (cost estate 1) (cost duchy 3)
+
+; a hand is 3 random cards (discarded + bought cards are shuffled in immediately)
+(<= (legal random (deal ?player ?a ?b ?c)) (role ?player) (distinct ?player random) (not (true (control ?player))) (not (true (control random))) (true (decksize ?player ?x)) (greater_than_equals ?x ?a) (greater_than_equals ?x ?b) (distinct ?a ?b) (greater_than_equals ?x ?c) (distinct ?a ?c) (distinct ?b ?c))
+(<= (legal random (deal duke ?a ?b ?c)) (true (control random)) (true (decksize duke ?x)) (greater_than_equals ?x ?a) (greater_than_equals ?x ?b) (distinct ?a ?b) (greater_than_equals ?x ?c) (distinct ?a ?c) (distinct ?b ?c))
+
+(<= (legal ?player noop) (true dealing) (role ?player) (distinct ?player random))
+(<= (legal ?player (buy copper)) (true (control ?player)) (distinct ?player random))
+(<= (legal ?player (buy ?card))
+	(true (control ?player)) (distinct ?player random) (cost ?card ?price) (true (money ?player ?x)) (greater_than_equals ?x ?price) (true (table ?y ?card))
+	;(greater_than_equals ?y 1)
+	(distinct ?y 0)
+	)
+
+; unsafe rule
+; (<= (legal ?player noop) (not (true (control ?player))) (distinct ?player random))
+; fixed version
+(<= (legal ?player noop) (role ?player) (not (true (control ?player))) (distinct ?player random))
+
+(<= (sees ?player (hand ?a ?b ?c)) (does random (deal ?player ?a ?b ?c)))
+; unsafe rule
+; (<= (sees ?player (table ?x ?card)) (true (table ?y ?card)) (does ?anyplayer (buy ?card)) (++ ?x ?y))
+; fixed version
+(<= (sees ?player (table ?x ?card)) (role ?player) (true (table ?y ?card)) (does ?anyplayer (buy ?card)) (++ ?x ?y))
+
+(<= (next (money ?player ?x))
+	(role ?player)
+	(does random (deal ?player ?a ?b ?c))
+	(true (deck ?player ?a ?carda))
+	(true (deck ?player ?b ?cardb))
+	(true (deck ?player ?c ?cardc))
+	(value ?carda ?i)
+	(value ?cardb ?j)
+	(value ?cardc ?k)
+	(add ?i ?j ?l)
+	(add ?k ?l ?x))
+
+(<= (next (deck ?player ?x ?card)) (true (deck ?player ?x ?card)))
+(<= (next (deck ?player ?index ?card)) (true (decksize ?player ?size)) (++ ?size ?index) (does ?player (buy ?card)))
+(<= (next (decksize ?player ?x)) (true (decksize ?player ?x)) (not (true (control ?player))))
+(<= (next (decksize ?player ?y)) (true (decksize ?player ?x)) (++ ?x ?y) (true (control ?player)))
+(<= (next (victory ?player ?x)) (true (victory ?player ?x)) (not (true (control ?player))))
+(<= (next (victory ?player ?new)) (true (victory ?player ?old)) (does ?player (buy ?card)) (points ?card ?pts) (add ?pts ?old ?new)) 
+(<= (next (table ?x ?card)) (true (table ?x ?card)) (true (control random)))
+(<= (next (table ?x ?card)) (true (table ?x ?card)) (does ?player (buy ?othercard)) (distinct ?card ?othercard))
+(<= (next (table ?x ?card)) (true (table ?y ?card)) (does ?player (buy ?card)) (++ ?x ?y))
+(<= (next (control duke)) (true (control random)))
+(<= (next (control earl)) (true (control duke)))
+(<= (next (control duke)) (true (control earl)))
+(<= terminal (true (table 0 duchy)))
+(<= terminal (true (table 0 estate)) (true (table 0 silver)))
+(<= terminal (true (table 0 copper)))
+
+(<= (goal ?player 100)
+	(true (victory ?player ?x)) (true (victory ?opponent ?y)) (distinct ?player ?opponent)
+	(greater_than_equals ?x ?y)
+	; made this faster
+	; (not (greater_than_equals ?y ?x))
+	(distinct ?x ?y)
+)
+(<= (goal ?player 50) (true (victory ?player ?x)) (true (victory ?opponent ?x)) (distinct ?player ?opponent))
+
+(<= (goal ?player 0)
+	(true (victory ?player ?x))
+	(true (victory ?opponent ?y))
+	(distinct ?player ?opponent)
+	(greater_than_equals ?y ?x)
+	; fixed this:
+	; (not (greater_than_equals ?y ?x))
+	; made this faster
+	;(not (greater_than_equals ?x ?y))
+	(distinct ?x ?y)
+)
+
+; added this:
+(goal random 0)
+
+(<= (greater_than_equals ?x ?x) (++ ?x ?y))
+(<= (greater_than_equals ?x ?y) (++ ?y ?x))
+(<= (greater_than_equals ?x ?y) (++ ?z ?x) (greater_than_equals ?z ?y))
+
+(<= (add 0 ?prev ?prev) (++ ?prev ?x))
+(<= (add 1 ?y ?z) (++ ?y ?z))
+(<= (add ?x ?y ?z) (++ ?littlex ?x) (add ?littlex ?y ?littlez) (++ ?littlez ?z))
+
+(++ 0 1) (++ 1 2) (++ 2 3) (++ 3 4) (++ 4 5) (++ 5 6) (++ 6 7) (++ 7 8) (++ 8 9) (++ 9 10) (++ 10 11) (++ 11 12) (++ 12 13) (++ 13 14) (++ 14 15) (++ 15 16) (++ 16 17) (++ 17 18) (++ 18 19) (++ 19 20) (++ 20 21) (++ 21 22) (++ 22 23) (++ 23 24) (++ 24 25) (++ 25 26) (++ 26 27) (++ 27 28) (++ 28 29) (++ 29 30) (++ 30 31) (++ 31 32) (++ 32 33) (++ 33 34) (++ 34 35) (++ 35 36) (++ 36 37) (++ 37 38) (++ 38 39) (++ 39 40) (++ 40 41) (++ 41 42) (++ 42 43) (++ 43 44) (++ 44 45) (++ 45 46) (++ 46 47) (++ 47 48) (++ 48 49) (++ 49 50) (++ 50 51) (++ 51 52) (++ 52 53) (++ 53 54) (++ 54 55) (++ 55 56) (++ 56 57) (++ 57 58) (++ 58 59) (++ 59 60) (++ 60 61) (++ 61 62) (++ 62 63) (++ 63 64) (++ 64 65) (++ 65 66) (++ 66 67) (++ 67 68) (++ 68 69) (++ 69 70) (++ 70 71) (++ 71 72) (++ 72 73) (++ 73 74) (++ 74 75) (++ 75 76) (++ 76 77) (++ 77 78) (++ 78 79) (++ 79 80) (++ 80 81) (++ 81 82) (++ 82 83) (++ 83 84) (++ 84 85) (++ 85 86) (++ 86 87) (++ 87 88) (++ 88 89) (++ 89 90) 

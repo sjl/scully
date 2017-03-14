@@ -1,0 +1,471 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Mastermind
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Version with four colors, four places and 8 chances to make the
+;;; right guess. After each move, the player is informed exactly
+;;; which colors were guessed correctly.
+;;;
+;;; GDL description by Tim Federholzner and Peter Kissmann
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; roles
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(role random)
+(role player)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; initial state
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;; The step counter is initialized to the setup phase.
+(init (guess setup))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; legal rules
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;; The random player sets up the colors in the first step.
+(<= (legal random (set ?c1 ?c2 ?c3 ?c4))
+    (true (guess setup))
+    (color ?c1)
+    (color ?c2)
+    (color ?c3)
+    (color ?c4)
+)
+
+;;; After the first step the random player can only watch the actual
+;;; player.
+(<= (legal random watch)
+    (true (guess ?g))
+    (distinct ?g setup)
+)
+
+;;; In the first step the actual player has to wait.
+(<= (legal player wait)
+    (true (guess setup))
+)
+
+;;; After the first step the actual player can guess the four colors.
+(<= (legal player (guessColors ?c1 ?c2 ?c3 ?c4))
+    (true (guess ?g))
+    (distinct ?g setup)
+    (color ?c1)
+    (color ?c2)
+    (color ?c3)
+    (color ?c4)
+)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; next rules
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;; The four places are colored the way chosen by the random player.
+(<= (next (set 1 ?c1))
+    (does random (set ?c1 ?c2 ?c3 ?c4))
+)
+(<= (next (set 2 ?c2))
+    (does random (set ?c1 ?c2 ?c3 ?c4))
+)
+(<= (next (set 3 ?c3))
+    (does random (set ?c1 ?c2 ?c3 ?c4))
+)
+(<= (next (set 4 ?c4))
+    (does random (set ?c1 ?c2 ?c3 ?c4))
+)
+
+;;; Once colored the places do not change their color.
+(<= (next (set ?n ?c))
+    (true (set ?n ?c))
+)
+
+;;; The last move is stored (in order to use it in the terminal and
+;;; goal descriptions).
+(<= (next (playerset ?c1 ?c2 ?c3 ?c4))
+    (does player (guessColors ?c1 ?c2 ?c3 ?c4))
+)
+
+;;; Increasing the step counter.
+(<= (next (guess ?g2))
+    (true (guess ?g1))
+    (succ ?g1 ?g2)
+)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; visualization fluents
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(slot 1)
+(slot 2)
+(slot 3)
+(slot 4)
+
+(<= (next (cell 1 ?n ?c1))
+	(does player (guessColors ?c1 ?c2 ?c3 ?c4))
+	(true (guess ?n0))
+	(succ ?n0 ?n)
+)
+(<= (next (cell 2 ?n ?c2))
+	(does player (guessColors ?c1 ?c2 ?c3 ?c4))
+	(true (guess ?n0))
+	(succ ?n0 ?n)
+)
+(<= (next (cell 3 ?n ?c3))
+	(does player (guessColors ?c1 ?c2 ?c3 ?c4))
+	(true (guess ?n0))
+	(succ ?n0 ?n)
+)
+(<= (next (cell 4 ?n ?c4))
+	(does player (guessColors ?c1 ?c2 ?c3 ?c4))
+	(true (guess ?n0))
+	(succ ?n0 ?n)
+)
+
+(<= (next (cell ?slot ?number ?color))
+	(true (cell ?slot ?number ?color))
+)
+
+(<= (next (cell 5 ?n white))
+	(does player (guessColors ?c1 ?c2 ?c3 ?c4))
+	(true (guess ?n0))
+	(succ ?n0 ?n)
+	(not (true (set 1 ?c1)))
+)
+(<= (next (cell 6 ?n white))
+	(does player (guessColors ?c1 ?c2 ?c3 ?c4))
+	(true (guess ?n0))
+	(succ ?n0 ?n)
+	(not (true (set 2 ?c2)))
+)
+(<= (next (cell 7 ?n white))
+	(does player (guessColors ?c1 ?c2 ?c3 ?c4))
+	(true (guess ?n0))
+	(succ ?n0 ?n)
+	(not (true (set 3 ?c3)))
+)
+(<= (next (cell 8 ?n white))
+	(does player (guessColors ?c1 ?c2 ?c3 ?c4))
+	(true (guess ?n0))
+	(succ ?n0 ?n)
+	(not (true (set 4 ?c4)))
+)
+
+(<= (next (cell 5 ?n black))
+	(does player (guessColors ?c1 ?c2 ?c3 ?c4))
+	(true (guess ?n0))
+	(succ ?n0 ?n)
+	(true (set 1 ?c1))
+)
+(<= (next (cell 6 ?n black))
+	(does player (guessColors ?c1 ?c2 ?c3 ?c4))
+	(true (guess ?n0))
+	(succ ?n0 ?n)
+	(true (set 2 ?c2))
+)
+(<= (next (cell 7 ?n black))
+	(does player (guessColors ?c1 ?c2 ?c3 ?c4))
+	(true (guess ?n0))
+	(succ ?n0 ?n)
+	(true (set 3 ?c3))
+)
+(<= (next (cell 8 ?n black))
+	(does player (guessColors ?c1 ?c2 ?c3 ?c4))
+	(true (guess ?n0))
+	(succ ?n0 ?n)
+	(true (set 4 ?c4))
+)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; sees rules
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;; The random player knows all moves.
+(<= (sees random (does ?r ?m))
+    (does ?r ?m)
+)
+
+;;; The actual player sees only its own moves - to ensure that it
+;;; knows which move has been performed in case of a timeout or
+;;; similar.
+(<= (sees player (does player ?m))
+    (does player ?m)
+)
+
+;;; The player is informed of all colors correctly guessed.
+(<= (sees player (set 1 ?c1))
+    (does player (guessColors ?c1 ?c2 ?c3 ?c4))
+    (true (set 1 ?c1))
+)
+(<= (sees player (set 2 ?c2))
+    (does player (guessColors ?c1 ?c2 ?c3 ?c4))
+    (true (set 2 ?c2))
+)
+(<= (sees player (set 3 ?c3))
+    (does player (guessColors ?c1 ?c2 ?c3 ?c4))
+    (true (set 3 ?c3))
+)
+(<= (sees player (set 4 ?c4))
+    (does player (guessColors ?c1 ?c2 ?c3 ?c4))
+    (true (set 4 ?c4))
+)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; terminal states
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;; The game ends after eight guesses.
+(<= terminal
+    (true (guess 8))
+)
+
+;;; The game also ends once the player has guessed the colors of all
+;;; four places correctly.
+(<= terminal
+    fourMatches
+)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; goal definitions
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;; The random player always gets 100 points.
+(goal random 100)
+
+;;; A good player should be able to find the correct solution in at
+;;; most four guesses, which results in 100 points.
+(<= (goal player 100)
+    (true (guess 1))
+    fourMatches
+)
+(<= (goal player 100)
+    (true (guess 2))
+    fourMatches
+)
+(<= (goal player 100)
+    (true (guess 3))
+    fourMatches
+)
+(<= (goal player 100)
+    (true (guess 4))
+    fourMatches
+)
+
+;;; If guessing all colors correctly took longer than four guesses
+;;; the reward is successively decreased.
+(<= (goal player 95)
+    (true (guess 5))
+    fourMatches
+)
+
+(<= (goal player 90)
+    (true (guess 6))
+    fourMatches
+)
+
+(<= (goal player 85)
+    (true (guess 7))
+    fourMatches
+)
+
+(<= (goal player 80)
+    (true (guess 8))
+    fourMatches
+)
+
+;;; Guessing less than four colors correctly in the final try results
+;;; in successively decreasing rewards.
+(<= (goal player 50)
+    (true (guess 8))
+    threeMatches
+)
+
+(<= (goal player 35)
+    (true (guess 8))
+    twoMatches
+)
+
+(<= (goal player 15)
+    (true (guess 8))
+    oneMatch
+)
+
+(<= (goal player 0)
+    (true (guess 8))
+    noMatch
+)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; utility rules
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;; The possible colors.
+(color red)
+(color blue)
+(color green)
+(color pink)
+
+;;; The successor relation (needed for the step counter "guess").
+(succ setup start)
+(succ start 1)
+(succ 1 2)
+(succ 2 3)
+(succ 3 4)
+(succ 4 5)
+(succ 5 6)
+(succ 6 7)
+(succ 7 8)
+
+;;; All colors guessed correctly in the last guess.
+(<= fourMatches
+    (true (playerset ?c1 ?c2 ?c3 ?c4))
+    (true (set 1 ?c1))
+    (true (set 2 ?c2))
+    (true (set 3 ?c3))
+    (true (set 4 ?c4))
+)
+
+;;; In the last guess exactly three colors matched.
+(<= threeMatches
+    (true (playerset ?c1 ?c2 ?c3 ?c4))
+    (true (set 1 ?s1))
+    (true (set 2 ?c2))
+    (true (set 3 ?c3))
+    (true (set 4 ?c4))
+    (distinct ?s1 ?c1)
+)
+(<= threeMatches
+    (true (playerset ?c1 ?c2 ?c3 ?c4))
+    (true (set 1 ?c1))
+    (true (set 2 ?s2))
+    (true (set 3 ?c3))
+    (true (set 4 ?c4))
+    (distinct ?s2 ?c2)
+)
+(<= threeMatches
+    (true (playerset ?c1 ?c2 ?c3 ?c4))
+    (true (set 1 ?c1))
+    (true (set 2 ?c2))
+    (true (set 3 ?s3))
+    (true (set 4 ?c4))
+    (distinct ?s3 ?c3)
+)
+(<= threeMatches
+    (true (playerset ?c1 ?c2 ?c3 ?c4))
+    (true (set 1 ?c1))
+    (true (set 2 ?c2))
+    (true (set 3 ?c3))
+    (true (set 4 ?s4))
+    (distinct ?s4 ?c4)
+)
+
+;;; In the last guess exactly two colors matched.
+(<= twoMatches
+    (true (playerset ?c1 ?c2 ?c3 ?c4))
+    (true (set 1 ?c1))
+    (true (set 2 ?c2))
+    (true (set 3 ?s3))
+    (true (set 4 ?s4))
+    (distinct ?s3 ?c3)
+    (distinct ?s4 ?c4)
+)
+(<= twoMatches
+    (true (playerset ?c1 ?c2 ?c3 ?c4))
+    (true (set 1 ?c1))
+    (true (set 2 ?s2))
+    (true (set 3 ?c3))
+    (true (set 4 ?s4))
+    (distinct ?s2 ?c2)
+    (distinct ?s4 ?c4)
+)
+(<= twoMatches
+    (true (playerset ?c1 ?c2 ?c3 ?c4))
+    (true (set 1 ?c1))
+    (true (set 2 ?s2))
+    (true (set 3 ?s3))
+    (true (set 4 ?c4))
+    (distinct ?s2 ?c2)
+    (distinct ?s3 ?c3)
+)
+(<= twoMatches
+    (true (playerset ?c1 ?c2 ?c3 ?c4))
+    (true (set 1 ?s1))
+    (true (set 2 ?c2))
+    (true (set 3 ?c3))
+    (true (set 4 ?s4))
+    (distinct ?s1 ?c1)
+    (distinct ?s4 ?c4)
+)
+(<= twoMatches
+    (true (playerset ?c1 ?c2 ?c3 ?c4))
+    (true (set 1 ?s1))
+    (true (set 2 ?c2))
+    (true (set 3 ?s3))
+    (true (set 4 ?c4))
+    (distinct ?s1 ?c1)
+    (distinct ?s3 ?c3)
+)
+(<= twoMatches
+    (true (playerset ?c1 ?c2 ?c3 ?c4))
+    (true (set 1 ?s1))
+    (true (set 2 ?s2))
+    (true (set 3 ?c3))
+    (true (set 4 ?c4))
+    (distinct ?s1 ?c1)
+    (distinct ?s2 ?c2)
+)
+
+;;; In the last guess exactly one color matched.
+(<= oneMatch
+    (true (playerset ?c1 ?c2 ?c3 ?c4))
+    (true (set 1 ?c1))
+    (true (set 2 ?s2))
+    (true (set 3 ?s3))
+    (true (set 4 ?s4))
+    (distinct ?s2 ?c2)
+    (distinct ?s3 ?c3)
+    (distinct ?s4 ?c4)
+)
+(<= oneMatch
+    (true (playerset ?c1 ?c2 ?c3 ?c4))
+    (true (set 1 ?s1))
+    (true (set 2 ?c2))
+    (true (set 3 ?s3))
+    (true (set 4 ?s4))
+    (distinct ?s1 ?c1)
+    (distinct ?s3 ?c3)
+    (distinct ?s4 ?c4)
+)
+(<= oneMatch
+    (true (playerset ?c1 ?c2 ?c3 ?c4))
+    (true (set 1 ?s1))
+    (true (set 2 ?s2))
+    (true (set 3 ?c3))
+    (true (set 4 ?s4))
+    (distinct ?s1 ?c1)
+    (distinct ?s2 ?c2)
+    (distinct ?s4 ?c4)
+)
+(<= oneMatch
+    (true (playerset ?c1 ?c2 ?c3 ?c4))
+    (true (set 1 ?s1))
+    (true (set 2 ?s2))
+    (true (set 3 ?s3))
+    (true (set 4 ?c4))
+    (distinct ?s1 ?c1)
+    (distinct ?s2 ?c2)
+    (distinct ?s3 ?c3)
+)
+
+;;; The last guess was completely incorrect.
+(<= noMatch
+    (true (playerset ?c1 ?c2 ?c3 ?c4))
+    (true (set 1 ?s1))
+    (true (set 2 ?s2))
+    (true (set 3 ?s3))
+    (true (set 4 ?s4))
+    (distinct ?s1 ?c1)
+    (distinct ?s2 ?c2)
+    (distinct ?s3 ?c3)
+    (distinct ?s4 ?c4)
+)

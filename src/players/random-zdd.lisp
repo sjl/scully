@@ -18,9 +18,6 @@
                                (dump-gdl <> s))
                              (ground-gdl-string <>)))
            (reasoner (make-zdd-reasoner grounded-rules)))
-      (pr "GROUNDED:")
-      (pr grounded-rules)
-      (pr '------------------------------------)
       (setf (rp-role player) role
             (rp-reasoner player) reasoner)
       t)))

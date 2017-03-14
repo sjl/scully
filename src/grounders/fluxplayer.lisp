@@ -73,28 +73,22 @@
           (negative-terms (.repeat negative-term-count
                                    (.whitespace-and (.positive-integer))))
           (positive-terms (.repeat (- term-count negative-term-count)
-                                   (.whitespace-and (.positive-integer))))
-          (_ (.char= #\newline)))
+                                   (.whitespace-and (.positive-integer)))))
     (.identity (make-rule :id id
                           :positive positive-terms
                           :negative negative-terms))))
 
-(defun .delimiter-line ()
-  (.progn (.char= #\0)
-          (.or (.char= #\newline)
-               (.eof))
-          (.identity nil)))
-
-(defun .grounded-gdl ()
-  (.let* ((rules (.first (.map 'list (.rule-line))))
-          (_ (.delimiter-line))
-          (index (.first (.map 'list (.index-line))))
-          (_ (.delimiter-line)))
-    (.identity (list rules index))))
-
 
 (defun parse-raw-grounded (raw)
-  (values (parse (.grounded-gdl) raw)))
+  (with-input-from-string (s raw)
+    (iterate
+      (with in-index = nil)
+      (for line :in-stream s :using #'read-line)
+      (cond
+        ((string= "0" line) (setf in-index t))
+        (in-index (collect (parse (.index-line) line) :into index))
+        (t (collect (parse (.rule-line) line) :into rules)))
+      (finally (return (list rules index))))))
 
 
 ;;;; Rebuilding ---------------------------------------------------------------
@@ -155,6 +149,7 @@
 ; (dump-grounded "8puzzle")
 ; (dump-grounded "tictactoe")
 
-(dump-grounded "montyhall")
+;; (dump-grounded "small_dominion")
 
-;; (dump-grounded "meier")
+
+;; (time (dump-grounded "meier"))

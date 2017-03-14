@@ -1,0 +1,423 @@
+(role red)
+(role blue)
+
+(x 1)
+(x 2)
+(x 3)
+
+(y 1)
+(y 2)
+(y 3)
+(y 4)
+(y 5)
+(y 6)
+
+(piece flag)
+(piece bomb)
+(piece spy)
+(piece marshal)
+(piece miner)
+(piece scout)
+
+(immobile flag)
+(immobile bomb)
+
+(<= (init (cell ?x 3 b))
+	(x ?x)
+)
+
+(<= (init (cell ?x 4 b))
+	(x ?x)
+)
+
+(<= (init (inPool ?r ?p))
+	(role ?r)
+	(piece ?p)
+)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(order red 1 1 1)
+(order red 2 2 1)
+(order red 3 3 1)
+(order red 4 1 2)
+(order red 5 2 2)
+(order red 6 3 2)
+
+(order blue 1 1 5)
+(order blue 2 2 5)
+(order blue 3 3 5)
+(order blue 4 1 6)
+(order blue 5 2 6)
+(order blue 6 3 6)
+
+(<= (legal ?r (place ?x ?y ?p))
+	(role ?r)
+	(true (step ?s))
+	(order ?r ?s ?x ?y)
+	(true (inPool ?r ?p))
+)
+
+(<= (placed ?r ?p)
+	(does ?r (place ?x ?y ?p))
+)
+
+(<= (next (inPool ?r ?p))
+	(true (inPool ?r ?p))
+	(not (placed ?r ?p))
+)
+
+(<= (next (cell ?x ?y ?p))
+	(does ?r (place ?x ?y ?p))
+)
+
+(<= (next (occupied ?x ?y ?r))
+	(does ?r (place ?x ?y ?p))
+)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;; move for spy, miner and marshal
+(<= (legal ?r (move ?x ?y ?x2 ?y2))
+	(role ?r)
+	playingPhase
+	(true (turn ?r))
+	(true (occupied ?x ?y ?r))
+	(true (cell ?x ?y ?p))
+	(adjacent ?x ?y ?x2 ?y2)
+	(not (immobile ?p))
+	(not (true (occupied ?x2 ?y2 ?r)))
+)
+
+;;; special move for scout
+(<= (legal ?r (move ?x ?y ?x3 ?y3))
+	(role ?r)
+	playingPhase
+	(true (turn ?r))
+	(true (occupied ?x ?y ?r))
+	(true (cell ?x ?y scout))
+	(adjacent ?x ?y ?x2 ?y2)
+	(adjacent ?x2 ?y2 ?x3 ?y3)
+	(true (cell ?x2 ?y2 b))
+	(not (true (occupied ?x3 ?y3 ?r)))
+)
+
+(<= (legal ?r noop)
+	(role ?r)
+	playingPhase
+	(not (true (turn ?r)))
+)
+
+(<= (anyMobile ?r)
+	(role ?r)
+	playingPhase
+	(true (occupied ?x ?y ?r))
+	(true (cell ?x ?y ?p))
+	(adjacent ?x ?y ?x2 ?y2)
+	(not (immobile ?p))
+	(not (true (occupied ?x2 ?y2 ?r)))
+)
+
+(<= (legal ?r noop)
+	(role ?r)
+	playingPhase
+	(true (turn ?r))
+	(not (anyMobile ?r))
+)
+
+(<= (anyMoveFrom ?x ?y)
+	(does ?r (move ?x ?y ?x2 ?y2))
+)
+
+(<= (anyMoveTo ?x2 ?y2)
+	(does ?r (move ?x ?y ?x2 ?y2))
+)
+
+(<= (next (cell ?x ?y ?p))
+	(true (cell ?x ?y ?p))
+	(not (anyMoveFrom ?x ?y))
+	(not (anyMoveTo ?x ?y))
+)
+
+(<= (next (cell ?x ?y b))
+	(does ?r (move ?x ?y ?x2 ?y2))
+)
+
+(<= (next (occupied ?x ?y ?r))
+	(true (occupied ?x ?y ?r))
+	(not (anyMoveFrom ?x ?y))
+	(not (anyMoveTo ?x ?y))
+)
+
+(<= (next (cell ?x ?y ?p))
+	(true (cell ?x0 ?y0 ?p))
+	(does ?r (move ?x0 ?y0 ?x ?y))
+	(role ?r2)
+	(not (true (occupied ?x ?y ?r2)))
+	(distinct ?r ?r2)
+)
+
+(<= (next (occupied ?x ?y ?r))
+	(true (occupied ?x0 ?y0 ?r))
+	(does ?r (move ?x0 ?y0 ?x ?y))
+	(role ?r2)
+	(not (true (occupied ?x ?y ?r2)))
+	(distinct ?r ?r2)
+)
+
+(<= (sees ?r (did ?r ?m))
+	(does ?r ?m)
+)
+
+(<= (sees ?r (did ?r2 (move ?x ?y ?x2 ?y2)))
+	(role ?r)
+	(does ?r2 (move ?x ?y ?x2 ?y2))
+	(distinct ?r ?r2)
+)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(<= (sees ?r (cell ?x ?y ?p))
+	(true (cell ?x ?y ?p))
+	(true (occupied ?x ?y ?r2))
+	(does ?r (move ?x0 ?y0 ?x ?y))
+	(distinct ?r ?r2)
+)
+
+(<= (sees ?r (cell ?x ?y ?p))
+	(role ?r)
+	(does ?r2 (move ?x ?y ?x2 ?y2))
+	(true (occupied ?x2 ?y2 ?r))
+	(true (cell ?x ?y ?p))
+)
+
+(<= (next (cell ?x ?y ?p))
+	(true (cell ?x ?y ?p))
+	(true (occupied ?x ?y ?r))
+	(does ?r2 (move ?x0 ?y0 ?x ?y))
+	(distinct ?r ?r2)
+	(true (cell ?x0 ?y0 ?p0))
+	(beats ?p0 ?p ?p)
+)
+
+(<= (next (cell ?x ?y ?p0))
+	(true (cell ?x ?y ?p))
+	(true (occupied ?x ?y ?r))
+	(does ?r2 (move ?x0 ?y0 ?x ?y))
+	(distinct ?r ?r2)
+	(true (cell ?x0 ?y0 ?p0))
+	(beats ?p0 ?p ?p0)
+)
+
+(<= (next (cell ?x ?y b))
+	(true (cell ?x ?y ?p))
+	(true (occupied ?x ?y ?r))
+	(does ?r2 (move ?x0 ?y0 ?x ?y))
+	(distinct ?r ?r2)
+	(true (cell ?x0 ?y0 ?p))
+)
+
+(<= (next (occupied ?x ?y ?r))
+	(true (cell ?x ?y ?p))
+	(true (occupied ?x ?y ?r))
+	(does ?r2 (move ?x0 ?y0 ?x ?y))
+	(distinct ?r ?r2)
+	(true (cell ?x0 ?y0 ?p0))
+	(beats ?p0 ?p ?p)
+)
+
+(<= (next (occupied ?x ?y ?r2))
+	(true (cell ?x ?y ?p))
+	(true (occupied ?x ?y ?r))
+	(does ?r2 (move ?x0 ?y0 ?x ?y))
+	(distinct ?r ?r2)
+	(true (cell ?x0 ?y0 ?p0))
+	(beats ?p0 ?p ?p0)
+)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(<= (anyFlag ?r)
+	(true (cell ?x ?y flag))
+	(true (occupied ?x ?y ?r))
+)
+
+(<= playingPhase
+	(not (true (step 1)))
+	(not (true (step 2)))
+	(not (true (step 3)))
+	(not (true (step 4)))
+	(not (true (step 5)))
+	(not (true (step 6)))
+)
+
+(<= terminal
+	(role ?r)
+	(not (anyFlag ?r))
+	playingPhase
+)
+
+(<= terminal
+	playingPhase
+	(not (anyMobile red))
+	(not (anyMobile blue))
+)
+
+(<= terminal
+	(true (step 51))
+)
+
+(<= (goal red 100)
+	(not (anyFlag blue))
+)
+
+(<= (goal blue 100)
+	(not (anyFlag red))
+)
+
+(<= (goal ?r 50)
+	(role ?r)
+	(anyFlag red)
+	(anyFlag blue)
+	(true (step 51))
+)
+
+(<= (goal ?r 50)
+	(role ?r)
+	(anyFlag red)
+	(anyFlag blue)
+	(not (anyMobile red))
+	(not (anyMobile blue))
+)
+
+(<= (goal red 0)
+	(not (anyFlag red))
+)
+
+(<= (goal blue 0)
+	(not (anyFlag blue))
+)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;; attacker, defender, winner
+;;; if attacker and defender are equal, both lose
+
+(beats spy flag spy)
+(beats spy bomb bomb)
+(beats spy marshal spy)
+(beats spy miner miner)
+(beats spy scout scout)
+
+(beats marshal flag marshal)
+(beats marshal bomb bomb)
+(beats marshal spy marshal)
+(beats marshal miner marshal)
+(beats marshal scout marshal)
+
+(beats miner flag miner)
+(beats miner bomb miner)
+(beats miner spy miner)
+(beats miner marshal marshal)
+(beats miner scout miner)
+
+(beats scout flag scout)
+(beats scout bomb bomb)
+(beats scout spy scout)
+(beats scout marshal marshal)
+(beats scout miner miner)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(cellsucc 1 2)
+(cellsucc 2 3)
+(cellsucc 3 4)
+(cellsucc 4 5)
+(cellsucc 5 6)
+
+(<= (adjacent ?x ?y ?x ?y2)
+	(x ?x)
+	(cellsucc ?y ?y2)
+)
+(<= (adjacent ?x ?y ?x ?y2)
+	(x ?x)
+	(cellsucc ?y2 ?y)
+)
+(<= (adjacent ?x ?y ?x2 ?y)
+	(x ?x)
+	(x ?x2)
+	(y ?y)
+	(cellsucc ?x ?x2)
+)
+(<= (adjacent ?x ?y ?x2 ?y)
+	(x ?x)
+	(x ?x2)
+	(y ?y)
+	(cellsucc ?x2 ?x)
+)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(init (turn red))
+(<= (next (turn blue))
+	(true (turn red))
+)
+(<= (next (turn red))
+	(true (turn blue))
+)
+
+(init (step 1))
+(<= (next (step ?n1))
+	(true (step ?n0))
+	(succ ?n0 ?n1)
+)
+(succ 1 2)
+(succ 2 3)
+(succ 3 4)
+(succ 4 5)
+(succ 5 6)
+(succ 6 7)
+(succ 7 8)
+(succ 8 9)
+(succ 9 10)
+(succ 10 11)
+(succ 11 12)
+(succ 12 13)
+(succ 13 14)
+(succ 14 15)
+(succ 15 16)
+(succ 16 17)
+(succ 17 18)
+(succ 18 19)
+(succ 19 20)
+(succ 20 21)
+(succ 21 22)
+(succ 22 23)
+(succ 23 24)
+(succ 24 25)
+(succ 25 26)
+(succ 26 27)
+(succ 27 28)
+(succ 28 29)
+(succ 29 30)
+(succ 30 31)
+(succ 31 32)
+(succ 32 33)
+(succ 33 34)
+(succ 34 35)
+(succ 35 36)
+(succ 36 37)
+(succ 37 38)
+(succ 38 39)
+(succ 39 40)
+(succ 40 41)
+(succ 41 42)
+(succ 42 43)
+(succ 43 44)
+(succ 44 45)
+(succ 45 46)
+(succ 46 47)
+(succ 47 48)
+(succ 48 49)
+(succ 49 50)
+(succ 50 51)

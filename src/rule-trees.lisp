@@ -76,6 +76,7 @@
   (let* ((head (rule-head (first rules)))
          (top (top head))
          (cache (make-hash-table :test #'equal)))
+    ;; (pr head)
     (recursively ((bodies (mapcar (compose #'sort-body #'rule-body) rules)))
       (cond
         ((null bodies) bottom)

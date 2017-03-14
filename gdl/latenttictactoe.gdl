@@ -1,0 +1,262 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Latent Tictactoe
+;;; Based on Tictactoe game available at GGP-Server
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Created by: Tomas Motal (tmotal@labe.felk.cvut.cz)
+;;; Czech Technical University in Prague
+;;; Faculty of Elektrotechnics, department of Cybernetics.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Rules: The same rules as for standard tic tac toe apply only players do not 
+;; see opponent's moves unless they try to put their mark on a location where
+;; there already is opponent's mark from the previous turns.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Roles
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+  (role xplayer)
+  (role oplayer)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Initial State
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+  (init (cell 1 1 b))
+  (init (cell 1 2 b))
+  (init (cell 1 3 b))
+  (init (cell 2 1 b))
+  (init (cell 2 2 b))
+  (init (cell 2 3 b))
+  (init (cell 3 1 b))
+  (init (cell 3 2 b))
+  (init (cell 3 3 b))
+  (init (deniedx 1 1 b))
+  (init (deniedx 1 2 b))
+  (init (deniedx 1 3 b))
+  (init (deniedx 2 1 b))
+  (init (deniedx 2 2 b))
+  (init (deniedx 2 3 b))
+  (init (deniedx 3 1 b))
+  (init (deniedx 3 2 b))
+  (init (deniedx 3 3 b))
+  (init (deniedo 1 1 b))
+  (init (deniedo 1 2 b))
+  (init (deniedo 1 3 b))
+  (init (deniedo 2 1 b))
+  (init (deniedo 2 2 b))
+  (init (deniedo 2 3 b))
+  (init (deniedo 3 1 b))
+  (init (deniedo 3 2 b))
+  (init (deniedo 3 3 b))
+  (init (control xplayer))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Dynamic Components
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+  (<= (next (cell ?m ?n x))
+      (does xplayer (mark ?m ?n))
+      (true (cell ?m ?n b)))
+
+  (<= (next (deniedx ?m ?n x))
+      (does xplayer (mark ?m ?n))
+      (true (deniedx ?m ?n b)))
+
+  (<= (next (cell ?m ?n o))
+      (does oplayer (mark ?m ?n))
+      (true (cell ?m ?n b)))
+
+  (<= (next (deniedo ?m ?n x))
+      (does oplayer (mark ?m ?n))
+      (true (deniedo ?m ?n b)))
+
+  (<= (next (cell ?m ?n ?w))
+      (true (cell ?m ?n ?w))
+      (distinct ?w b))
+
+  (<= (next (cell ?m ?n b))
+      (does ?w (mark ?j ?k))
+      (true (cell ?m ?n b))
+      (or (distinct ?m ?j) (distinct ?n ?k)))
+
+  (<= (next (deniedx ?m ?n x))
+      (true (deniedx ?m ?n x)))
+
+  (<= (next (deniedo ?m ?n x))
+      (true (deniedo ?m ?n x)))
+
+  (<= (next (deniedx ?m ?n b))
+      (does xplayer (mark ?j ?k))
+      (true (deniedx ?m ?n b))
+      (or (distinct ?m ?j) (distinct ?n ?k)))
+
+  (<= (next (deniedo ?m ?n b))
+      (does oplayer (mark ?j ?k))
+      (true (deniedo ?m ?n b))
+      (or (distinct ?m ?j) (distinct ?n ?k)))
+
+  (<= (next (deniedo ?m ?n b))
+      (does xplayer (mark ?m ?n))
+      (true (deniedo ?m ?n b)))
+
+  (<= (next (deniedx ?m ?n b))
+      (does oplayer (mark ?m ?n))
+      (true (deniedx ?m ?n b)))
+
+  (<= (next (deniedo ?m ?n b))
+      (does xplayer (mark ?j ?k))
+      (true (deniedo ?m ?n b))
+      (or (distinct ?m ?j) (distinct ?n ?k)))
+
+  (<= (next (deniedx ?m ?n b))
+      (does oplayer (mark ?j ?k))
+      (true (deniedx ?m ?n b))
+      (or (distinct ?m ?j) (distinct ?n ?k)))
+
+  (<= (row ?m ?x)
+      (true (cell ?m 1 ?x))
+      (true (cell ?m 2 ?x))
+      (true (cell ?m 3 ?x)))
+
+  (<= (column ?n ?x)
+      (true (cell 1 ?n ?x))
+      (true (cell 2 ?n ?x))
+      (true (cell 3 ?n ?x)))
+
+  (<= (diagonal ?x)
+      (true (cell 1 1 ?x))
+      (true (cell 2 2 ?x))
+      (true (cell 3 3 ?x)))
+
+  (<= (diagonal ?x)
+      (true (cell 1 3 ?x))
+      (true (cell 2 2 ?x))
+      (true (cell 3 1 ?x)))
+
+  (<= (line ?x) (row ?m ?x))
+  (<= (line ?x) (column ?m ?x))
+  (<= (line ?x) (diagonal ?x))
+
+  (<= open
+      (true (cell ?m ?n b)))
+
+  (<= (next (control oplayer))
+      (does xplayer (mark ?x ?y))
+      (legal xplayer (mark ?x ?y))
+      (true (cell ?x ?y b))
+      (true (control xplayer)))
+
+  (<= (next (control xplayer))
+      (does xplayer (mark ?x ?y))
+      (legal xplayer (mark ?x ?y))
+      (true (cell ?x ?y o))
+      (true (control xplayer)))
+
+  (<= (next (control xplayer))
+      (does oplayer (mark ?x ?y))
+      (legal oplayer (mark ?x ?y))
+      (true (cell ?x ?y b))
+      (true (control oplayer)))
+
+  (<= (next (control oplayer))
+      (does oplayer (mark ?x ?y))
+      (legal oplayer (mark ?x ?y))
+      (true (cell ?x ?y x))
+      (true (control oplayer)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Sees terms
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+  (<= (sees oplayer controlo)
+      (does oplayer (mark ?x ?y))
+      (legal oplayer (mark ?x ?y))
+      (true (cell ?x ?y x))
+      (true (control oplayer)))
+
+  (<= (sees xplayer controlx)
+      (does xplayer (mark ?x ?y))
+      (legal xplayer (mark ?x ?y))
+      (true (cell ?x ?y o))
+      (true (control xplayer)))
+
+  (<= (sees xplayer controlx)
+      (does oplayer (mark ?x ?y))
+      (legal oplayer (mark ?x ?y))
+      (true (cell ?x ?y b))
+      (true (control oplayer)))
+
+  (<= (sees oplayer controlo)
+      (does xplayer (mark ?x ?y))
+      (legal xplayer (mark ?x ?y))
+      (true (cell ?x ?y b))
+      (true (control xplayer)))
+
+  (<= (sees ?w (mark ?x ?y))
+      (does ?w (mark ?x ?y))
+      (legal ?w (mark ?x ?y)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Legality of moves
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+  (<= (legal xplayer (mark ?x ?y))
+      (true (deniedx ?x ?y b))
+      (true (control xplayer)))
+
+  (<= (legal oplayer (mark ?x ?y))
+      (true (deniedo ?x ?y b))
+      (true (control oplayer)))
+
+  (<= (legal xplayer noop)
+      (true (control oplayer)))
+
+  (<= (legal oplayer noop)
+      (true (control xplayer)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Goals
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+  (<= (goal xplayer 100)
+      (line x))
+
+  (<= (goal xplayer 50)
+      (not (line x))
+      (not (line o))
+      (not open))
+
+  (<= (goal xplayer 0)
+      (line o))
+
+  (<= (goal oplayer 100)
+      (line o))
+
+  (<= (goal oplayer 50)
+      (not (line x))
+      (not (line o))
+      (not open))
+
+  (<= (goal oplayer 0)
+      (line x))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Terminal states
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+  (<= terminal
+      (line x))
+
+  (<= terminal
+      (line o))
+
+  (<= terminal
+      (not open))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
