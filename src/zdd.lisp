@@ -27,14 +27,14 @@
     ,@body))
 
 
-(defun enumerate (zdd)
+(defun zdd-enumerate (zdd)
   "Return a list of all members of `zdd`."
   (ematch zdd
     ((sink nil) nil)
     ((sink t) (list nil))
     ((node variable hi lo)
-     (append (mapcar (curry #'cons variable) (enumerate hi))
-             (enumerate lo)))))
+     (append (mapcar (curry #'cons variable) (zdd-enumerate hi))
+             (zdd-enumerate lo)))))
 
 
 (defun zdd-empty-p (zdd)
@@ -372,5 +372,5 @@
 (defun test ()
   (with-zdd
     (let ((z (zdd-set '(2 3 4 5 8))))
-      (enumerate z)
-      (enumerate (zdd-match z '(2 4 8) #(t nil t nil t nil t nil t nil))))))
+      (zdd-enumerate z)
+      )))

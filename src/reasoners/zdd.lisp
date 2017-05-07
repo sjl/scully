@@ -149,7 +149,10 @@
          (rule-tree-1 rule-tree-2 ...)
 
   "
-  (let* ((rules (scully.gdl::normalize-rules rules))
+  (let* ((rules (-<> rules
+                  scully.gdl::normalize-rules
+                  scully.gdl::split-rules
+                  ))
          (roles (find-roles rules)))
     (destructuring-bind (term->number number->term possible happens)
         (scully.terms::integerize-rules rules)
@@ -265,7 +268,7 @@
 
 
 (defun iset-to-list (reasoner iset)
-  (let ((contents (scully.zdd::enumerate iset)))
+  (let ((contents (scully.zdd::zdd-enumerate iset)))
     (if (null contents)
       nil
       (map-tree (curry #'number-to-term reasoner) contents))))
@@ -566,13 +569,14 @@
 
 ;;;; Scratch ------------------------------------------------------------------
 (defparameter *rules* (scully.gdl::read-gdl "gdl/meier-grounded.gdl"))
-(defparameter *rules* (scully.gdl::read-gdl "gdl/pennies-grounded.gdl"))
 (defparameter *rules* (scully.gdl::read-gdl "gdl/montyhall-grounded.gdl"))
-(defparameter *rules* (scully.gdl::read-gdl "gdl/meier-grounded.gdl"))
+(defparameter *rules* (scully.gdl::read-gdl "gdl/mastermind-grounded.gdl"))
 (defparameter *rules* (scully.gdl::read-gdl "gdl/kriegTTT_5x5-grounded.gdl"))
+(defparameter *rules* (scully.gdl::read-gdl "gdl/pennies-grounded.gdl"))
 
 (defparameter *r* nil)
-;; (defparameter *r* (make-zdd-reasoner *rules*))
+(defparameter *r* (make-zdd-reasoner *rules*))
+
 
 (defun test ()
   (with-zdd
@@ -584,15 +588,16 @@
       (apply-happens *r* <>)
       (filter-iset-for-move
         *r* <>
-        'ggp-rules::candidate
-        '(ggp-rules::choose 3))
+        'ggp-rules::player
+        'ggp-rules::wait)
       (filter-iset-for-percepts
         *r* <>
-        'ggp-rules::candidate
-        '((ggp-rules::does ggp-rules::candidate (ggp-rules::choose 3))))
+        'ggp-rules::player
+        '((ggp-rules::does ggp-rules::player ggp-rules::wait)))
       (compute-next-iset *r* <>)
 
       (dump-iset *r* <>)
-      (no <>)
-      ; (draw-zdd *r* <>)
+      ;; (pr (scully.zdd::zdd-node-count <>))
+      ;; (no <>)
+      (draw-zdd *r* <>)
       )))

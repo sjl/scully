@@ -93,3 +93,43 @@
   (funcall predicate (rule-head rule) term))
 
 
+;;;; Rule Splitting -----------------------------------------------------------
+;;; Rules with many terms in their bodies are difficult to make rule trees for,
+;;; because the size of the tree grows exponentially.  We can fix this problem
+;;; by splitting large disjunctions into separate rules.
+(defconstant +max-rule-size+ 8)
+
+(defun split-rule (head bodies)
+  (if (<= (length bodies) +max-rule-size+)
+    (values (mapcar (curry #'cons head) bodies) nil)
+    (iterate
+      (for chunk :in (subdivide bodies +max-rule-size+))
+      (for new-head = (list (gensym-ggp)))
+      (collecting new-head :into new-heads)
+      (appending (mapcar (curry #'cons new-head) chunk)
+                 :into new-rules)
+      (finally
+        (return (values (append new-rules
+                                (mapcar (lambda (new-head)
+                                          (list head new-head))
+                                        new-heads))
+                        t))))))
+
+(defun split-rules% (normalized-rules)
+  (let ((rules (group-by #'rule-head normalized-rules :test #'equal)))
+    (iterate
+      (for (head instances) :in-hashtable rules)
+      (for bodies = (mapcar #'rule-body instances))
+      (for (values new-instances needed-split) = (split-rule head bodies))
+      (oring needed-split :into ever-needed-split)
+      (appending new-instances :into new-rules)
+      (finally (return (values new-rules ever-needed-split))))))
+
+(defun split-rules (normalized-rules)
+  (iterate (for (values rules needed-split)
+                :first (values normalized-rules t)
+                :then (split-rules% rules))
+           (for c :from 0)
+           (while needed-split)
+           (finally (return (values rules c)))))
+
