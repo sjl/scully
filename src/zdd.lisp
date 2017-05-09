@@ -20,7 +20,6 @@
 (defparameter *cache*
   (tg:make-weak-hash-table :weakness :value :test #'equalp))
 
-
 (defmacro with-zdd (&body body)
   "Execute `body` with the ZDD settings properly initialized."
   `(with-odd-context (:operation #'zdd-apply :node-cache *cache*)

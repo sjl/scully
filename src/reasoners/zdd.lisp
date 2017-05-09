@@ -211,18 +211,28 @@
 
 
 ;;;; Sprouting ----------------------------------------------------------------
+(defun build-role-move-zdd (next-zdd role-moves)
+  (reduce (lambda (prev move)
+            (zdd-node move next-zdd prev))
+          (sort role-moves #'>)
+          :initial-value (sink nil)))
+
+(defun sprout-extend% (legal-moves-by-role)
+  (reduce #'build-role-move-zdd legal-moves-by-role :initial-value (sink t)))
+
 (defun sprout-extend (reasoner legal-moves)
-  (let* ((moves (-<> legal-moves
-                  (group-by #'second <>)
-                  hash-table-values
-                  (mapcar (lambda (role-moves)
-                            (mapcar (curry #'term-to-number reasoner) role-moves))
-                          <>)))
-         (combinations (gathering
-                         (apply #'map-product
-                                (compose #'gather #'list)
-                                moves))))
-    (apply #'zdd-family combinations)))
+  (sprout-extend%
+    (-<> legal-moves
+      (group-by #'second <>) ; go role by role
+      hash-table-values
+      (sort <> #'scully.terms::symbol< ; sort by role 
+            :key (lambda (moves)
+                   (second (first moves))))
+      nreverse ; go bottom up
+      (mapcar (lambda (role-moves) ; convert to integers
+                (mapcar (curry #'term-to-number reasoner) role-moves))
+              <>))))
+
 
 (defun sprout-traverse (reasoner iset)
   (recursively ((z iset)
@@ -569,12 +579,13 @@
 
 ;;;; Scratch ------------------------------------------------------------------
 (defparameter *rules* (scully.gdl::read-gdl "gdl/meier-grounded.gdl"))
-(defparameter *rules* (scully.gdl::read-gdl "gdl/montyhall-grounded.gdl"))
-(defparameter *rules* (scully.gdl::read-gdl "gdl/mastermind-grounded.gdl"))
 (defparameter *rules* (scully.gdl::read-gdl "gdl/kriegTTT_5x5-grounded.gdl"))
 (defparameter *rules* (scully.gdl::read-gdl "gdl/pennies-grounded.gdl"))
+(defparameter *rules* (scully.gdl::read-gdl "gdl/mastermind-grounded.gdl"))
+(defparameter *rules* (scully.gdl::read-gdl "gdl/montyhall-grounded.gdl"))
 
-(defparameter *r* nil)
+(defparameter *i* nil)
+;; (defparameter *r* nil)
 (defparameter *r* (make-zdd-reasoner *rules*))
 
 
@@ -596,8 +607,11 @@
         '((ggp-rules::does ggp-rules::player ggp-rules::wait)))
       (compute-next-iset *r* <>)
 
-      (dump-iset *r* <>)
-      ;; (pr (scully.zdd::zdd-node-count <>))
-      ;; (no <>)
-      (draw-zdd *r* <>)
+      (apply-possible *r* <>)
+      (sprout *r* <>)
+
+      ;; (dump-iset *r* <>)
+      (pr (scully.zdd::zdd-node-count <>))
+      ;; (draw-zdd *r* <>)
+      (no <>)
       )))

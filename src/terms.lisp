@@ -210,6 +210,11 @@
 
 
 ;;;; Intra-Layer Ordering -----------------------------------------------------
+(defun symbol< (a b)
+  (string< (symbol-name a)
+           (symbol-name b)))
+
+
 (defun sort-and-flatten-strata (strata)
   "Take `strata` and turn it into a sorted list of rule heads."
   (flet ((heads-in-stratum (stratum)
@@ -252,6 +257,10 @@
                     -1))
                (_ -2))))
 
+(defun sort-does-layer (does-terms)
+  "Return a fresh list of the does terms, sorted correctly."
+  (sort (copy-seq does-terms) #'symbol< :key #'second))
+
 
 (defun order-terms (rules)
   "Find a linear ordering of all terms in `rules`.
@@ -275,7 +284,7 @@
       (let* ((possible-terms (order-layer (gethash :possible layers) possible-strata))
              (happens-terms (order-layer (gethash :happens layers) happens-strata))
              (base-terms (sort-base-layer (gethash :base layers) happens-terms))
-             (does-terms (gethash :does layers)))
+             (does-terms (sort-does-layer (gethash :does layers))))
         ;; And finally we concatenate the layer orderings into one bigass order:
         ;; base < possible < does < happens
         (values (append base-terms possible-terms does-terms happens-terms)
