@@ -56,17 +56,28 @@
         (rp-information-set player) nil))
 
 (defmethod ggp:player-update-game-ii ((player random-ii-player) move percepts)
+  (format t "~2%=====================================~%")
   (when move
     (setf (rp-information-set player)
           (get-next-information-set player move percepts))))
 
+(defun information-set-objects (iset)
+  (let ((seen (make-hash-table)))
+    (recursively ((iset iset))
+      (etypecase iset
+        ((or integer symbol) (if (nth-value 1 (ensure-gethash iset seen))
+                               0
+                               1))
+        (cons (+ 1
+                 (recur (car iset))
+                 (recur (cdr iset))))))))
+
 (defmethod ggp:player-select-move ((player random-ii-player) timeout)
+  (format t "Selecting move...~%")
   (with-random-ii-player (player)
     (format t "Information set size: ~D~%" (length information-set))
-    ; (let ((*package* (find-package :ggp-rules)))
-    ;   (iterate (for state :in information-set)
-    ;            (format t "    ~S~%" state)))
-    (format t "Selecting move...~%")
+    (format t "Information set object count ~D~%"
+            (information-set-objects information-set))
     (random-elt (legal-moves-for reasoner role (first information-set)))))
 
 
@@ -77,5 +88,5 @@
                                 :name "Scully-Random-II"
                                 :port 5002))
 
-; (ggp:start-player *player* :server :hunchentoot :use-thread t)
-; (ggp:kill-player *player*)
+;; (ggp:start-player *player* :server :hunchentoot :use-thread t)
+;; (ggp:kill-player *player*)

@@ -30,14 +30,22 @@
             iset nil))))
 
 (defmethod ggp:player-update-game-ii ((player random-zdd-player) move percepts)
+  (format t "~2%=====================================~%")
   (scully.zdd::with-zdd
     (with-random-zdd-player (player)
       (setf iset
             (if move
               (-<> iset
-                (sprout reasoner <>)
+                (progn (format t "Information set size: ~D states, ~D ZDD nodes~%"
+                               (scully.zdd:zdd-count <>)
+                               (scully.zdd:zdd-node-count <>))
+                       <>)
+                (sprout reasoner <> (rp-role player) move)
                 (apply-happens reasoner <>)
-                (filter-iset-for-move reasoner <> role move)
+                (progn
+                  (format t "        Max size: ~D ZDD nodes~%"
+                          (scully.zdd:zdd-node-count <>))
+                  <>)
                 (filter-iset-for-percepts reasoner <> role percepts)
                 (compute-next-iset reasoner <>)
                 (apply-possible reasoner <>))
@@ -47,13 +55,10 @@
   (scully.zdd::with-zdd
     (format t "Selecting move...~%")
     (with-random-zdd-player (player)
-      (format t "CURRENT ISET:~%")
-      (dump-iset reasoner iset)
-      (format t "Information set size: ~D states, ~D ZDD nodes~%"
-              (scully.zdd:zdd-count iset)
-              (scully.zdd:zdd-node-count iset))
-      (format t "LEGAL MOVES:~%")
-      (pr (legal-moves-for reasoner iset role))
+      ;; (format t "CURRENT ISET:~%")
+      ;; (dump-iset reasoner iset)
+      ;; (format t "LEGAL MOVES:~%")
+      ;; (pr (legal-moves-for reasoner iset role))
       (random-elt (legal-moves-for reasoner iset role)))))
 
 
@@ -64,5 +69,6 @@
                                 :name "Scully-Random-ZDD"
                                 :port 5003))
 
-;; (ggp:start-player *player* :server :hunchentoot :use-thread t)
+(ggp:start-player *player* :server :hunchentoot :use-thread t)
 ;; (ggp:kill-player *player*)
+(slot-value *player* 'ggp::request-lock)

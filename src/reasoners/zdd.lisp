@@ -220,12 +220,15 @@
 (defun sprout-extend% (legal-moves-by-role)
   (reduce #'build-role-move-zdd legal-moves-by-role :initial-value (sink t)))
 
-(defun sprout-extend (reasoner legal-moves)
+(defun sprout-extend (reasoner legal-moves role chosen-move)
   (sprout-extend%
     (-<> legal-moves
       (group-by #'second <>) ; go role by role
+      (progn (setf (gethash role <>)
+                   (list `(ggp-rules::does ,role ,chosen-move)))
+             <>)
       hash-table-values
-      (sort <> #'scully.terms::symbol< ; sort by role 
+      (sort <> #'scully.terms::symbol< ; sort by role
             :key (lambda (moves)
                    (second (first moves))))
       nreverse ; go bottom up
@@ -234,14 +237,14 @@
               <>))))
 
 
-(defun sprout-traverse (reasoner iset)
+(defun sprout-traverse (reasoner iset role chosen-move)
   (recursively ((z iset)
                 (legal-moves '()))
     (ematch z
       ;; If we hit the empty sink, just bail, there's nothing to add on to.
       ((sink nil) (sink nil))
       ;; If we hit the unit sink we're ready to sprout off the `does`es.
-      ((sink t) (sprout-extend reasoner legal-moves))
+      ((sink t) (sprout-extend reasoner legal-moves role chosen-move))
       ;; Otherwise we're at a node.
       ((node n hi lo)
        (match (number-to-term reasoner n)
@@ -254,7 +257,7 @@
          ;; Otherwise we just recur down both.
          (_ (zdd-node n (recur hi legal-moves) (recur lo legal-moves))))))))
 
-(defun sprout (reasoner iset)
+(defun sprout (reasoner iset role chosen-move)
   "Sprout off child states for each state in `iset` for all legal moves."
   ;; Given an information set, we want to compute a new information set with all
   ;; possible combinations of `does` added, which we'll narrow down later once
@@ -266,7 +269,7 @@
   ;; To do this we'll traverse the ZDD recursively, accumulating a list of all
   ;; legal moves for each player as we go.  Once we hit a sink we'll tack on
   ;; a child ZDD of all the possible combos.
-  (sprout-traverse reasoner iset))
+  (sprout-traverse reasoner iset role chosen-move))
 
 
 ;;;; Basic API ----------------------------------------------------------------
@@ -362,7 +365,8 @@
                         *reasoner*
                         reasoner)
                       <>)
-      (format nil "~D ~S" n <>))))
+      ;; (format nil "~D ~S" n <>)
+      (format nil "~S" <>))))
 
 (defun draw-zdd (reasoner zdd)
   (scully.graphviz::draw-zdd zdd :label-fn (curry #'label reasoner)))
@@ -583,6 +587,7 @@
 (defparameter *rules* (scully.gdl::read-gdl "gdl/pennies-grounded.gdl"))
 (defparameter *rules* (scully.gdl::read-gdl "gdl/mastermind-grounded.gdl"))
 (defparameter *rules* (scully.gdl::read-gdl "gdl/montyhall-grounded.gdl"))
+(defparameter *rules* (scully.gdl::read-gdl "gdl/tictactoe-grounded.gdl"))
 
 (defparameter *i* nil)
 ;; (defparameter *r* nil)

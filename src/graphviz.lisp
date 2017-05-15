@@ -42,7 +42,8 @@
                        (label-fn #'identity))
   (let ((*rt-label-fn* label-fn))
     (cl-dot:dot-graph
-      (cl-dot:generate-graph-from-roots 'rule-tree (list rule-tree))
+      (cl-dot:generate-graph-from-roots 'rule-tree (list rule-tree)
+                                        '(:dpi 300))
       filename
       :format :png))
   rule-tree)
