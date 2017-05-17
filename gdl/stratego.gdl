@@ -217,6 +217,7 @@
 	(true (cell ?x0 ?y0 ?p))
 )
 
+
 (<= (next (occupied ?x ?y ?r))
 	(true (cell ?x ?y ?p))
 	(true (occupied ?x ?y ?r))

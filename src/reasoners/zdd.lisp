@@ -293,6 +293,22 @@
              (format t "STATE ~D:~%~{    ~S~%~}~2%" i state)))
   iset)
 
+(defun dump-rule-tree (reasoner term)
+  (draw-rule-tree
+    reasoner
+    (iterate
+      finder
+      (with target = (term-to-number reasoner term))
+      (for nf :from 0)
+      (for forest :in (list (zr-possible-forest reasoner)
+                            (zr-happens-forest reasoner)))
+      (iterate (for stratum :in (rf-strata forest))
+               (for ns :from 0)
+               (iterate (for rule :in (stratum-rule-trees stratum))
+                        (when (= target (scully.rule-trees::head rule))
+                          (pr 'forest nf 'stratum ns)
+                          (return-from finder rule)))))))
+
 
 (defun initial-iset (reasoner)
   "Return the initial information set of the game."
@@ -581,6 +597,18 @@
       (traverse-iset iset forest))))
 
 
+;;;; Stats --------------------------------------------------------------------
+(defun rule-forest-size (forest)
+  (iterate
+    (for stratum :in (rf-strata forest))
+    (appending (mapcar #'scully.rule-trees::rule-tree-size
+                       (stratum-rule-trees stratum)))))
+
+(defun reasoner-rule-tree-sizes (reasoner)
+  (append (rule-forest-size (zr-possible-forest reasoner))
+          (rule-forest-size (zr-happens-forest reasoner))))
+
+
 ;;;; Scratch ------------------------------------------------------------------
 (defparameter *rules* (scully.gdl::read-gdl "gdl/meier-grounded.gdl"))
 (defparameter *rules* (scully.gdl::read-gdl "gdl/kriegTTT_5x5-grounded.gdl"))
@@ -588,35 +616,10 @@
 (defparameter *rules* (scully.gdl::read-gdl "gdl/mastermind-grounded.gdl"))
 (defparameter *rules* (scully.gdl::read-gdl "gdl/montyhall-grounded.gdl"))
 (defparameter *rules* (scully.gdl::read-gdl "gdl/tictactoe-grounded.gdl"))
+(defparameter *rules* (scully.gdl::read-gdl "gdl/stratego-grounded.gdl"))
 
 (defparameter *i* nil)
-;; (defparameter *r* nil)
-(defparameter *r* (make-zdd-reasoner *rules*))
+(defparameter *r* nil)
+;; (defparameter *r* (make-zdd-reasoner *rules*))
+;; (reasoner-rule-tree-sizes *r*)
 
-
-(defun test ()
-  (with-zdd
-    (-<>
-        (initial-iset *r*)
-
-      (apply-possible *r* <>)
-      (sprout *r* <>)
-      (apply-happens *r* <>)
-      (filter-iset-for-move
-        *r* <>
-        'ggp-rules::player
-        'ggp-rules::wait)
-      (filter-iset-for-percepts
-        *r* <>
-        'ggp-rules::player
-        '((ggp-rules::does ggp-rules::player ggp-rules::wait)))
-      (compute-next-iset *r* <>)
-
-      (apply-possible *r* <>)
-      (sprout *r* <>)
-
-      ;; (dump-iset *r* <>)
-      (pr (scully.zdd::zdd-node-count <>))
-      ;; (draw-zdd *r* <>)
-      (no <>)
-      )))

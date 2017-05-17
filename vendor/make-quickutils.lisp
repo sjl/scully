@@ -19,8 +19,10 @@
                :map-tree
                :mkstr
                :once-only
+               :partition-if
                :rcurry
                :set-equal
+               :shuffle
                :subdivide
                :symb
                :with-gensyms

@@ -2,7 +2,7 @@
 ;;;; See http://quickutil.org for details.
 
 ;;;; To regenerate:
-;;;; (qtlc:save-utils-as "quickutils.lisp" :utilities '(:COMPOSE :COPY-HASH-TABLE :CURRY :ENSURE-BOOLEAN :ENSURE-GETHASH :ENSURE-LIST :EXTREMUM :FLATTEN-ONCE :HASH-TABLE-ALIST :HASH-TABLE-KEYS :HASH-TABLE-VALUES :MAP-PRODUCT :MAP-TREE :MKSTR :ONCE-ONLY :RCURRY :SET-EQUAL :SUBDIVIDE :SYMB :WITH-GENSYMS :WITH-OUTPUT-TO-FILE :WRITE-STRING-INTO-FILE :YES-NO) :ensure-package T :package "SCULLY.QUICKUTILS")
+;;;; (qtlc:save-utils-as "quickutils.lisp" :utilities '(:COMPOSE :COPY-HASH-TABLE :CURRY :ENSURE-BOOLEAN :ENSURE-GETHASH :ENSURE-LIST :EXTREMUM :FLATTEN-ONCE :HASH-TABLE-ALIST :HASH-TABLE-KEYS :HASH-TABLE-VALUES :MAP-PRODUCT :MAP-TREE :MKSTR :ONCE-ONLY :PARTITION-IF :RCURRY :SET-EQUAL :SHUFFLE :SUBDIVIDE :SYMB :WITH-GENSYMS :WITH-OUTPUT-TO-FILE :WRITE-STRING-INTO-FILE :YES-NO) :ensure-package T :package "SCULLY.QUICKUTILS")
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (unless (find-package "SCULLY.QUICKUTILS")
@@ -21,7 +21,9 @@
                                          :HASH-TABLE-KEYS :MAPHASH-VALUES
                                          :HASH-TABLE-VALUES :MAPPEND
                                          :MAP-PRODUCT :MAP-TREE :MKSTR
-                                         :ONCE-ONLY :RCURRY :SET-EQUAL
+                                         :ONCE-ONLY :PARTITION-IF :RCURRY
+                                         :SET-EQUAL :SAFE-ENDP :CIRCULAR-LIST
+                                         :PROPER-LIST-LENGTH/LAST-CAR :SHUFFLE
                                          :SUBDIVIDE :SYMB :STRING-DESIGNATOR
                                          :WITH-GENSYMS :WITH-OPEN-FILE*
                                          :WITH-OUTPUT-TO-FILE
@@ -331,6 +333,27 @@ Example:
                ,@forms)))))
   
 
+  (defun partition-if (f seq)
+    "Given a predicate F, partition SEQ into two sublists, the first
+of which has elements that satisfy F, the second which do not."
+    (let ((yes nil)
+          (no nil))
+      (map nil
+           #'(lambda (x)
+               (if (funcall f x)
+                   (push x yes)
+                   (push x no)))
+           seq)
+      (values yes no)))
+  
+  (defun partition-if-not (f seq)
+    "Partition SEQ into two sublists, the first whose elements do not
+satisfy the predicate F, and the second whose elements do."
+    (multiple-value-bind (yes no)
+        (partition-if f seq)
+      (values no yes)))
+  
+
   (defun rcurry (function &rest arguments)
     "Returns a function that applies the arguments it is called
 with and `arguments` to `function`."
@@ -352,6 +375,117 @@ every element of `list2` matches some element of `list1`. Otherwise returns fals
            (dolist (elt keylist2 t)
              (or (member elt keylist1 :test test)
                  (return nil))))))
+  
+
+  (declaim (inline safe-endp))
+  (defun safe-endp (x)
+    (declare (optimize safety))
+    (endp x))
+  
+
+  (defun circular-list (&rest elements)
+    "Creates a circular list of ELEMENTS."
+    (let ((cycle (copy-list elements)))
+      (nconc cycle cycle)))
+
+  (defun circular-list-p (object)
+    "Returns true if OBJECT is a circular list, NIL otherwise."
+    (and (listp object)
+         (do ((fast object (cddr fast))
+              (slow (cons (car object) (cdr object)) (cdr slow)))
+             (nil)
+           (unless (and (consp fast) (listp (cdr fast)))
+             (return nil))
+           (when (eq fast slow)
+             (return t)))))
+  
+  (defun make-circular-list (length &key initial-element)
+    "Creates a circular list of LENGTH with the given INITIAL-ELEMENT."
+    (let ((cycle (make-list length :initial-element initial-element)))
+      (nconc cycle cycle)))
+
+  (deftype circular-list ()
+    "Type designator for circular lists. Implemented as a SATISFIES type, so not
+recommended for performance intensive use. Main usefullness as the
+expected-type designator of a TYPE-ERROR."
+    `(satisfies circular-list-p))
+  
+
+  (defun circular-list-error (list)
+    (error 'type-error
+           :datum list
+           :expected-type '(and list (not circular-list))))
+  
+  (macrolet ((def (name lambda-list doc step declare ret1 ret2)
+               (assert (member 'list lambda-list))
+               `(defun ,name ,lambda-list
+                  ,doc
+                  (do ((last list fast)
+                       (fast list (cddr fast))
+                       (slow (cons (car list) (cdr list)) (cdr slow))
+                       ,@(when step (list step)))
+                      (nil)
+                    (declare (dynamic-extent slow) ,@(when declare (list declare))
+                             (ignorable last))
+                    (when (safe-endp fast)
+                      (return ,ret1))
+                    (when (safe-endp (cdr fast))
+                      (return ,ret2))
+                    (when (eq fast slow)
+                      (circular-list-error list))))))
+    (def proper-list-length (list)
+      "Returns length of LIST, signalling an error if it is not a proper list."
+      (n 1 (+ n 2))
+      ;; KLUDGE: Most implementations don't actually support lists with bignum
+      ;; elements -- and this is WAY faster on most implementations then declaring
+      ;; N to be an UNSIGNED-BYTE.
+      (fixnum n)
+      (1- n)
+      n)
+
+    (def lastcar (list)
+      "Returns the last element of LIST. Signals a type-error if LIST is not a
+proper list."
+      nil
+      nil
+      (cadr last)
+      (car fast))
+
+    (def (setf lastcar) (object list)
+      "Sets the last element of LIST. Signals a type-error if LIST is not a proper
+list."
+      nil
+      nil
+      (setf (cadr last) object)
+      (setf (car fast) object)))
+  
+
+  (defun shuffle (sequence &key (start 0) end)
+    "Returns a random permutation of `sequence` bounded by `start` and `end`.
+Original sequece may be destructively modified, and share storage with
+the original one. Signals an error if `sequence` is not a proper
+sequence."
+    (declare (type fixnum start)
+             (type (or fixnum null) end))
+    (etypecase sequence
+      (list
+       (let* ((end (or end (proper-list-length sequence)))
+              (n (- end start)))
+         (do ((tail (nthcdr start sequence) (cdr tail)))
+             ((zerop n))
+           (rotatef (car tail) (car (nthcdr (random n) tail)))
+           (decf n))))
+      (vector
+       (let ((end (or end (length sequence))))
+         (loop for i from start below end
+               do (rotatef (aref sequence i)
+                           (aref sequence (+ i (random (- end i))))))))
+      (sequence
+       (let ((end (or end (length sequence))))
+         (loop for i from (- end 1) downto start
+               do (rotatef (elt sequence i)
+                           (elt sequence (+ i (random (- end i)))))))))
+    sequence)
   
 
   (defun subdivide (sequence chunk-size)
@@ -489,8 +623,9 @@ unless it's `nil`, which means the system default."
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (export '(compose copy-hash-table curry ensure-boolean ensure-gethash
             ensure-list extremum flatten-once hash-table-alist hash-table-keys
-            hash-table-values map-product map-tree mkstr once-only rcurry
-            set-equal subdivide symb with-gensyms with-unique-names
-            with-output-to-file write-string-into-file yes no)))
+            hash-table-values map-product map-tree mkstr once-only partition-if
+            partition-if-not rcurry set-equal shuffle subdivide symb
+            with-gensyms with-unique-names with-output-to-file
+            write-string-into-file yes no)))
 
 ;;;; END OF quickutils.lisp ;;;;

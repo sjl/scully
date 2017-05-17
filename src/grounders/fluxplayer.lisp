@@ -145,11 +145,9 @@
   'ok)
 
 
-; (dump-grounded "buttons")
-; (dump-grounded "8puzzle")
-; (dump-grounded "tictactoe")
-
+;; (dump-grounded "buttons")
+;; (dump-grounded "8puzzle")
+;; (dump-grounded "tictactoe")
+;; (dump-grounded "stratego")
 ;; (dump-grounded "small_dominion")
-
-
 ;; (time (dump-grounded "meier"))

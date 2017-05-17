@@ -89,6 +89,21 @@
                         (recur (append (mapcar #'rest disallows) ignores)))))))))
 
 
+(defun rule-tree-size (tree)
+  (adt:match rule-tree tree
+    (bottom 1)
+    ((top _) 1)
+    ((node _ hi lo) (+ 1
+                       (rule-tree-size hi)
+                       (rule-tree-size lo)))))
+
+(defun head (tree)
+  (adt:match rule-tree tree
+    (bottom nil)
+    ((top term) term)
+    ((node _ hi lo) (or (head hi) (head lo)))))
+
+
 ;;;; Scratch ------------------------------------------------------------------
 (defparameter *rule* '(
                        (500 1 2 (ggp-rules::not 3))

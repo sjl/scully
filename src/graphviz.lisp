@@ -43,7 +43,8 @@
   (let ((*rt-label-fn* label-fn))
     (cl-dot:dot-graph
       (cl-dot:generate-graph-from-roots 'rule-tree (list rule-tree)
-                                        '(:dpi 300))
+                                        ;; '(:dpi 300)
+                                        )
       filename
       :format :png))
   rule-tree)

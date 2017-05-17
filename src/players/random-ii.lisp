@@ -1,14 +1,17 @@
 (in-package :scully.players.random-ii)
 
+(defvar *data-file* nil)
+
 
 ;;;; Random Incomplete-Information Player -------------------------------------
 (defclass random-ii-player (ggp:ggp-player)
   ((role :type symbol :accessor rp-role)
    (reasoner :accessor rp-reasoner)
-   (information-set :accessor rp-information-set)))
+   (information-set :accessor rp-information-set)
+   (turn :initform 0 :accessor rp-turn)))
 
 (define-with-macro (random-ii-player :conc-name rp)
-  role reasoner information-set)
+  role reasoner information-set turn)
 
 
 (defun percepts-match-p (player state moves percepts)
@@ -44,33 +47,35 @@
 
 
 (defmethod ggp:player-start-game ((player random-ii-player) rules role timeout)
+  (setf *data-file* (open "data-prolog" :direction :output :if-exists :append))
+  ;; (format *data-file* "turn,information set size,cons/symbol count~%")
   (let ((reasoner (make-prolog-reasoner)))
     (load-rules reasoner rules)
     (setf (rp-role player) role
-          (rp-reasoner player) reasoner
-          (rp-information-set player) (list (initial-state reasoner)))))
+          (rp-turn player) 0
+          (rp-reasoner player) reasoner)))
 
 (defmethod ggp:player-stop-game ((player random-ii-player))
+  (finish-output *data-file*)
+  (close *data-file*)
   (setf (rp-role player) nil
         (rp-reasoner player) nil
         (rp-information-set player) nil))
 
 (defmethod ggp:player-update-game-ii ((player random-ii-player) move percepts)
   (format t "~2%=====================================~%")
-  (when move
-    (setf (rp-information-set player)
-          (get-next-information-set player move percepts))))
+  (with-random-ii-player (player)
+    (setf information-set
+          (if move
+            (get-next-information-set player move percepts)
+            (list (initial-state reasoner))))
+    (format *data-file* "~D,~D,~D~%"
+            turn
+            (length information-set)
+            (information-set-objects information-set))))
 
 (defun information-set-objects (iset)
-  (let ((seen (make-hash-table)))
-    (recursively ((iset iset))
-      (etypecase iset
-        ((or integer symbol) (if (nth-value 1 (ensure-gethash iset seen))
-                               0
-                               1))
-        (cons (+ 1
-                 (recur (car iset))
-                 (recur (cdr iset))))))))
+  (apply #'+ (mapcar #'length iset)))
 
 (defmethod ggp:player-select-move ((player random-ii-player) timeout)
   (format t "Selecting move...~%")

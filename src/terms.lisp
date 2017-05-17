@@ -1,6 +1,15 @@
 (in-package :scully.terms)
 (in-readtable :fare-quasiquote)
 
+;;;; Shuffling ----------------------------------------------------------------
+(defparameter *shuffle-variables* nil)
+
+(defun optionally-shuffle (sequence)
+  (if *shuffle-variables*
+    (shuffle (copy-seq sequence))
+    sequence))
+
+
 ;;;; Overview -----------------------------------------------------------------
 ;;; We start with a set of grounded rules like: ((next bar) x y (true foo)).
 ;;;
@@ -24,7 +33,7 @@
 
 
 ;;;; Dependency Graph ---------------------------------------------------------
-(defun build-dependency-graph (rules &key includep)
+(defun build-dependency-graph (rules &key includep flip?)
   "Build a dependency graph of the given `rules`.
 
   All rule heads will be included as vertices.
@@ -32,6 +41,9 @@
   A head will have a dependency on each of its body terms for which
   `(funcall includep term)` returns `t`.  If `includep` is `nil` all
   dependencies will be included.
+
+  If `flip?` is true the dependencies will be in the opposite direction
+  (bodyterm -> head).
 
   Only body terms upon which there is a dependency will be included in the graph
   -- if a body term is discarded by `includep` there will be no vertex for it.
@@ -41,7 +53,9 @@
     (labels
         ((mark-dependency (head dep)
            (digraph:insert-vertex graph dep)
-           (digraph:insert-edge graph head dep))
+           (if flip?
+             (digraph:insert-edge graph dep head)
+             (digraph:insert-edge graph head dep)))
          (mark-dependencies (head body)
            (digraph:insert-vertex graph head)
            (iterate (for b :in body)
@@ -176,7 +190,7 @@
 
 
 ;;;; Stratification -----------------------------------------------------------
-(defun build-single-layer-dependency-graph (rules)
+(defun build-negation-dependency-graph (rules)
   (let* ((layer-heads (remove-duplicates (mapcar #'rule-head rules)
                                          :test #'equal)))
     (build-dependency-graph
@@ -186,15 +200,52 @@
                        (member (bare-term body-term) layer-heads
                                :test #'equal))))))
 
+(defun build-reverse-dependency-graph (rules)
+  (let* ((layer-heads (remove-duplicates (mapcar #'rule-head rules)
+                                         :test #'equal)))
+    (build-dependency-graph
+      rules
+      :includep (lambda (body-term)
+                  (member (bare-term body-term) layer-heads
+                          :test #'equal))
+      :flip? t)))
+
+(defun remove-vertices (digraph vertices)
+  (dolist (v vertices)
+    (digraph:remove-vertex digraph v)))
+
+
+(defun find-reach (digraph start-vertices)
+  (iterate
+    (for start :in start-vertices)
+    (unioning (digraph:map-depth-first #'identity digraph start)
+              :test #'equal)))
+
+(defun nonleafs (digraph)
+  (remove-if (curry #'digraph::leafp digraph)
+             (digraph:vertices digraph)))
+
+(defun find-next-stratum (all-dependencies neg-dependencies)
+  (let* ((immediately-ineligible (nonleafs neg-dependencies))
+         (ineligible (find-reach all-dependencies immediately-ineligible))
+         (stratum (set-difference (digraph:vertices all-dependencies)
+                                  ineligible)))
+    (remove-vertices all-dependencies stratum)
+    (remove-vertices neg-dependencies stratum)
+    stratum))
+
 (defun stratify-layer (rules)
   "Stratify a single layer of rules into a list of strata."
   (iterate
-    (with dependencies = (build-single-layer-dependency-graph rules))
+    (with all-dependencies = (build-reverse-dependency-graph rules))
+    (with neg-dependencies = (build-negation-dependency-graph rules))
     (with remaining = rules)
     (until (null remaining))
 
-    (for next-heads = (digraph:leafs dependencies))
+    (for next-heads = (find-next-stratum all-dependencies neg-dependencies))
     (when (null next-heads)
+      (digraph.dot:draw all-dependencies :filename "digraph-all.png")
+      (digraph.dot:draw neg-dependencies :filename "digraph-neg.png")
       (error "Cycle in negations detected!"))
 
     (for stratum = (remove-if-not (lambda (head)
@@ -203,10 +254,7 @@
                                   :key #'rule-head))
     (collect stratum)
 
-    (setf remaining (set-difference remaining stratum :test #'equal))
-
-    (dolist (head next-heads)
-      (digraph:remove-vertex dependencies head))))
+    (setf remaining (set-difference remaining stratum :test #'equal))))
 
 
 ;;;; Intra-Layer Ordering -----------------------------------------------------
@@ -223,6 +271,7 @@
              (remove-duplicates <> :test #'equal))))
     (-<> strata
       (mapcar #'heads-in-stratum <>)
+      (mapcar #'optionally-shuffle <>)
       (flatten-once <>))))
 
 (defun extract-rules-for-layer (layers rules layer-key)
@@ -240,7 +289,8 @@
 (defun order-layer (layer-terms layer-strata)
   "Return a list of all terms in the layer in the proper order."
   (let* ((strata-terms (sort-and-flatten-strata layer-strata))
-         (leftovers (set-difference layer-terms strata-terms :test #'equal)))
+         (leftovers (optionally-shuffle
+                      (set-difference layer-terms strata-terms :test #'equal))))
     (append leftovers strata-terms)))
 
 
@@ -259,7 +309,16 @@
 
 (defun sort-does-layer (does-terms)
   "Return a fresh list of the does terms, sorted correctly."
-  (sort (copy-seq does-terms) #'symbol< :key #'second))
+  ;; (sort (copy-seq does-terms) #'symbol< :key #'second)
+  (-<> does-terms
+    (group-by #'second <> :test #'equal)
+    hash-table-values
+    (sort <> #'symbol< :key #'(lambda (role-terms)
+                                (-<> role-terms ; ((does KEY ...) ...)
+                                  first
+                                  second)))
+    (mapcar #'optionally-shuffle <>)
+    flatten-once))
 
 
 (defun order-terms (rules)
@@ -336,30 +395,10 @@
 
 
 ;;;; Scratch ------------------------------------------------------------------
-(defparameter *rules*
-  '(
-    (ggp-rules::<= x (ggp-rules::true a))
-    (ggp-rules::<= x (ggp-rules::true b))
-    (ggp-rules::<= (ggp-rules::next a)
-                   (ggp-rules::true foo))
-    (ggp-rules::<= z (ggp-rules::does c x))
-    (ggp-rules::<= (ggp-rules::next b)
-                   (ggp-rules::not z))
-    ))
-
-(defun print-strata (strata)
-  (iterate (for i :from 0)
-           (for stratum :in strata)
-           (format t "STRATUM ~D:~%~{    ~S~%~}~2%"
-                   i stratum)))
-
-(defun test ()
-  (-<> *rules*
-    (normalize-rules <>)
-    (integerize-rules <>)
-    (nth 2 <>)
-    ;; (pr <>)
-    (print-strata <>)
-    ;; (rest <>)
-    ;; (map nil #'print-hash-table <>)
-    (no <>)))
+;; (map nil #'pr (stratify-layer '(
+;;                                 (a b (ggp-rules::not c))
+;;                                 (c (ggp-rules::not d))
+;;                                 (d e)
+;;                                 (e d)
+;;                                 (b)
+;;                                 )))
