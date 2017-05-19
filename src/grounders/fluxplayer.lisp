@@ -146,6 +146,7 @@
 
 
 ;; (dump-grounded "buttons")
+;; (dump-grounded "pennies")
 ;; (dump-grounded "8puzzle")
 ;; (dump-grounded "tictactoe")
 ;; (dump-grounded "stratego")

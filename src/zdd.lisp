@@ -270,55 +270,6 @@
       ((sink nil) (sink nil))
 
       ;; If Z = {∅}, the only set ∅ can match is the empty set.
-      ((sink t) (if set
-                  (sink nil)
-                  (sink t)))
-
-      ;; Otherwise Z is a real node.
-      ((node var hi lo)
-       (cond
-         ;; If we're below the lower bound of the universe, just recur down.
-         ((< var lower-bound) (zdd-node var
-                                        (recur hi set)
-                                        (recur lo set)))
-
-         ;; If we're above the upper bound of the universe, we're never gonna
-         ;; see anything more we might need to match.
-         ;;
-         ;; If our target set is empty, that's perfect.  But if it's NOT empty,
-         ;; we're never gonna satisfy it.
-         ((> var upper-bound) (if set
-                                (sink nil)
-                                zdd))
-
-         ;; Otherwise Z's var is within the universe.
-         (t (ematch set
-              ;; If our target is empty, only the lo branch of Z can possibly
-              ;; match.
-              (nil (recur lo set))
-
-              ;; Otherwise we've got a target element.  Almost there!
-              ((list* element remaining)
-               (cond
-                 ;; If we're below the target element, we recur down the lo
-                 ;; branch because the hi branch contains something unwanted.
-                 ((< var element) (recur lo set))
-                 ;; If we're above the target element, we can never match.
-                 ((> var element) (sink nil))
-                 ;; Otherwise, we recur down the hi branch with the rest of our
-                 ;; target (the lo branch is always missing this element).
-                 ((= var element) (zdd-node var
-                                            (recur hi remaining)
-                                            ;        jeeeeeeeesus
-                                            (sink nil))))))))))))
-
-(defun zdd-match% (zdd set universe)
-  (recursively ((zdd zdd) (set set))
-    (ematch zdd
-      ;; If Z = ∅, there are no candidates for matching.
-      ((sink nil) (sink nil))
-
-      ;; If Z = {∅}, the only set ∅ can match is the empty set.
       ((sink t) (if (null set)
                   (sink t)
                   (sink nil)))
@@ -368,8 +319,3 @@
 
 
 ;;;; Scratch ------------------------------------------------------------------
-(defun test ()
-  (with-zdd
-    (let ((z (zdd-set '(2 3 4 5 8))))
-      (zdd-enumerate z)
-      )))
