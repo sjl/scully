@@ -1,7 +1,7 @@
 (in-package :scully.players.random-zdd)
 
 (defvar *data-file* nil)
-(defparameter *current-game* 'pennies)
+(defparameter *current-game* 'mastermind448)
 
 
 ;;;; Random Incomplete-Information Player -------------------------------------
@@ -9,13 +9,15 @@
   ((role :type symbol :accessor rp-role)
    (reasoner :accessor rp-reasoner)
    (information-set :accessor rp-iset)
-   (turn :initform 0 :accessor rp-turn)))
+   (turn :initform 0 :accessor rp-turn)
+   (game :initform 0 :accessor rp-game)))
 
 (define-with-macro (random-zdd-player :conc-name rp)
-  role reasoner iset turn)
+  role reasoner iset turn game)
 
 
 (defmethod ggp:player-start-game ((player random-zdd-player) rules role timeout)
+  (incf (rp-game player))
   (setf *data-file* (open "data-zdd" :direction :output :if-exists :append))
   ;; (format *data-file* "turn,information set size,zdd node count,max node count~%")
   (scully.zdd::with-zdd
@@ -93,8 +95,9 @@
                                object-size (information-set-objects (scully.zdd::zdd-enumerate <>)))
                          <>)
                   (apply-possible reasoner <>))))
-        (format *data-file* "~A,~D,~D,~D,~D,~D~%"
+        (format *data-file* "~A,~D,~D,~D,~D,~D,~D~%"
                 *current-game*
+                game
                 turn
                 state-count
                 node-count

@@ -97,13 +97,13 @@
 ;;; Rules with many terms in their bodies are difficult to make rule trees for,
 ;;; because the size of the tree grows exponentially.  We can fix this problem
 ;;; by splitting large disjunctions into separate rules.
-(defconstant +max-rule-size+ 8)
+(defparameter *max-rule-size* 8)
 
 (defun split-rule (head bodies)
-  (if (<= (length bodies) +max-rule-size+)
+  (if (<= (length bodies) *max-rule-size*)
     (values (mapcar (curry #'cons head) bodies) nil)
     (iterate
-      (for chunk :in (subdivide bodies +max-rule-size+))
+      (for chunk :in (subdivide bodies *max-rule-size*))
       (for new-head = (list (gensym-ggp)))
       (collecting new-head :into new-heads)
       (appending (mapcar (curry #'cons new-head) chunk)

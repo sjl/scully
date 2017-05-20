@@ -148,6 +148,8 @@
 ;; (dump-grounded "buttons")
 ;; (dump-grounded "pennies")
 ;; (dump-grounded "8puzzle")
+;; (dump-grounded "mastermind448")
+;; (dump-grounded "vis_pacman3p.gdl")
 ;; (dump-grounded "tictactoe")
 ;; (dump-grounded "stratego")
 ;; (dump-grounded "small_dominion")

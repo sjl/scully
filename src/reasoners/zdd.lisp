@@ -610,16 +610,44 @@
 
 
 ;;;; Scratch ------------------------------------------------------------------
-(defparameter *rules* (scully.gdl::read-gdl "gdl/meier-grounded.gdl"))
-(defparameter *rules* (scully.gdl::read-gdl "gdl/kriegTTT_5x5-grounded.gdl"))
-(defparameter *rules* (scully.gdl::read-gdl "gdl/pennies-grounded.gdl"))
-(defparameter *rules* (scully.gdl::read-gdl "gdl/mastermind-grounded.gdl"))
-(defparameter *rules* (scully.gdl::read-gdl "gdl/montyhall-grounded.gdl"))
-(defparameter *rules* (scully.gdl::read-gdl "gdl/tictactoe-grounded.gdl"))
-(defparameter *rules* (scully.gdl::read-gdl "gdl/stratego-grounded.gdl"))
-
 (defparameter *i* nil)
 (defparameter *r* nil)
+
+;; (defparameter *rules* (scully.gdl::read-gdl "gdl/meier-grounded.gdl"))
+;; (defparameter *rules* (scully.gdl::read-gdl "gdl/kriegTTT_5x5-grounded.gdl"))
+;; (defparameter *rules* (scully.gdl::read-gdl "gdl/pennies-grounded.gdl"))
+;; (defparameter *rules* (scully.gdl::read-gdl "gdl/mastermind-grounded.gdl"))
+;; (defparameter *rules* (scully.gdl::read-gdl "gdl/mastermind448-grounded.gdl"))
+;; (defparameter *rules* (scully.gdl::read-gdl "gdl/montyhall-grounded.gdl"))
+;; (defparameter *rules* (scully.gdl::read-gdl "gdl/tictactoe-grounded.gdl"))
+;; (defparameter *rules* (scully.gdl::read-gdl "gdl/stratego-grounded.gdl"))
+;; (defparameter *rules* (scully.gdl::read-gdl "gdl/transit-grounded.gdl"))
+;; (defparameter *rules* (scully.gdl::read-gdl "gdl/vis_pacman3p-grounded.gdl"))
+
 ;; (defparameter *r* (make-zdd-reasoner *rules*))
-;; (reasoner-rule-tree-sizes *r*)
+
+(defun run-test (game-name max-rule-size shuffle?)
+  (let* ((scully.terms::*shuffle-variables* shuffle?)
+         (scully.gdl::*max-rule-size* max-rule-size)
+         (gdl (scully.gdl::read-gdl (format nil "gdl/~(~A~)-grounded.gdl" game-name)))
+         (start (get-internal-real-time))
+         (r (make-zdd-reasoner gdl))
+         (end (get-internal-real-time))
+         (elapsed (/ (- end start) internal-time-units-per-second))
+         (sizes (reasoner-rule-tree-sizes r)))
+    (format t "~A,~D,~A,~D,~D,~,2F~%"
+            game-name
+            scully.gdl::*max-rule-size*
+            scully.terms::*shuffle-variables*
+            (length sizes)
+            (apply #'+ sizes)
+            elapsed)
+    (values)))
+
+
+;; (run-test 'pennies 8 nil)
+
+;; (iterate
+;;   (repeat 10)
+;;   (run-test 'transit 12 nil))
 

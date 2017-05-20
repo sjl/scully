@@ -1,0 +1,203 @@
+;; GDL-II
+;;;;;;;;;;;;;;;;;;;;;; Mastermind 4 4 8 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(role random)
+(role player)
+
+(color red)
+(color blue)
+(color green)
+(color pink)
+
+(number 1)
+(number 2)
+(number 3)
+(number 4)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(init (guess 1))
+(init setup)
+(succ 2  1)
+(succ 3  2)
+(succ 4  3)
+(succ 5  4)
+(succ 6  5)
+(succ 7  6)
+(succ 8  7)
+(succ 9  8)
+(succ 10 9)
+(succ 11 10)
+(succ 12 11)
+(succ 13 12)
+
+(<= (next (guess ?g))
+  (true (guess ?gp))
+  (succ ?g ?gp))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(<= (sees ?r (does ?r ?m))
+  (does ?r ?m))
+
+(<= (legal random (set ?n ?c))
+  (true (guess ?n))
+  (color ?c)
+  (true setup)
+  (not (true (set ?n ?c2)))
+  (color ?c2))
+
+(<= (next (set ?n ?c))
+  (or
+    (true (set ?n ?c))
+    (does random (set ?n ?c))))
+
+(<= (legal random noop)
+  (not (true setup)))
+
+(<= (next setup)
+  (or
+    (true (guess 1))
+    (true (guess 2))
+    (true (guess 3))))
+
+(<= (legal player noop)
+  (true setup))
+
+(<= (legal player (guessColors ?c1 ?c2 ?c3 ?c4))
+  (not (true setup))
+  (color ?c1)
+  (color ?c2)
+  (color ?c3)
+  (color ?c4))
+
+(<= (sees player (set 1 ?c1))
+  (does player (guessColors ?c1 ?c2 ?c3 ?c4))
+  (true (set 1 ?c1)))
+
+(<= (sees player (set 2 ?c2))
+  (does player (guessColors ?c1 ?c2 ?c3 ?c4))
+  (true (set 2 ?c2)))
+
+(<= (sees player (set 3 ?c3))
+  (does player (guessColors ?c1 ?c2 ?c3 ?c4))
+  (true (set 3 ?c3)))
+
+(<= (sees player (set 4 ?c4))
+  (does player (guessColors ?c1 ?c2 ?c3 ?c4))
+  (true (set 4 ?c4)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(<= terminal
+  (true (guess 13)))
+
+(<= (sees player won)
+  (true won))
+
+(<= (next won)
+  (does player (guessColors ?c1 ?c2 ?c3 ?c4))
+  (true (set 1 ?c1))
+  (true (set 2 ?c2))
+  (true (set 3 ?c3))
+  (true (set 4 ?c4)))
+
+(<= (next (playerset ?c1 ?c2 ?c3 ?c4))
+  (does player (guessColors ?c1 ?c2 ?c3 ?c4)))
+
+(<= terminal
+  (true won))
+
+(goal random 100)
+
+(<= (goal player 100)
+  (true won))
+
+(<= (same ?x ?x)
+  (color ?x))
+
+(<= (goal player 75)
+  (true (guess 13))
+  (true (playerset ?c1 ?c2 ?c3 ?c4))
+  (true (set 1 ?s1))
+  (true (set 2 ?s2))
+  (true (set 3 ?s3))
+  (true (set 4 ?s4))
+  (or
+    (and (same ?c1 ?s1) (same ?c2 ?s2) (same ?c3 ?s3) (distinct ?c4 ?s4))
+    (and (same ?c1 ?s1) (same ?c2 ?s2) (same ?c4 ?s4) (distinct ?c3 ?s3))
+    (and (same ?c1 ?s1) (same ?c3 ?s3) (same ?c4 ?s4) (distinct ?c2 ?s2))
+    (and (same ?c2 ?s2) (same ?c3 ?s3) (same ?c4 ?s4) (distinct ?c1 ?s1))))
+
+(<= (goal player 50)
+  (true (guess 13))
+  (true (playerset ?c1 ?c2 ?c3 ?c4))
+  (true (set 1 ?s1))
+  (true (set 2 ?s2))
+  (true (set 3 ?s3))
+  (true (set 4 ?s4))
+  (or
+    (and (same ?c1 ?s1) (same ?c2 ?s2) (distinct ?c3 ?s3) (distinct ?c4 ?s4))
+    (and (same ?c1 ?s1) (same ?c3 ?s3) (distinct ?c2 ?s2) (distinct ?c4 ?s4))
+    (and (same ?c1 ?s1) (same ?c4 ?s4) (distinct ?c2 ?s2) (distinct ?c3 ?s3))
+    (and (same ?c2 ?s2) (same ?c3 ?s3) (distinct ?c1 ?s1) (distinct ?c4 ?s4))
+    (and (same ?c2 ?s2) (same ?c4 ?s4) (distinct ?c1 ?s1) (distinct ?c3 ?s3))
+    (and (same ?c3 ?s3) (same ?c4 ?s4) (distinct ?c1 ?s1) (distinct ?c2 ?s2))))
+
+(<= (goal player 25)
+  (true (guess 13))
+  (true (playerset ?c1 ?c2 ?c3 ?c4))
+  (true (set 1 ?c1))
+  (true (set 2 ?s2))
+  (true (set 3 ?s3))
+  (true (set 4 ?s4))
+  (distinct ?c2 ?s2)
+  (distinct ?c3 ?s3)
+  (distinct ?c4 ?s4))
+
+(<= (goal player 25)
+  (true (guess 13))
+  (true (playerset ?c1 ?c2 ?c3 ?c4))
+  (true (set 1 ?s1))
+  (true (set 2 ?c2))
+  (true (set 3 ?s3))
+  (true (set 4 ?s4))
+  (distinct ?c1 ?s1)
+  (distinct ?c3 ?s3)
+  (distinct ?c4 ?s4))
+
+(<= (goal player 25)
+  (true (guess 13))
+  (true (playerset ?c1 ?c2 ?c3 ?c4))
+  (true (set 1 ?s1))
+  (true (set 2 ?s2))
+  (true (set 3 ?c3))
+  (true (set 4 ?s4))
+  (distinct ?c2 ?s2)
+  (distinct ?c1 ?s1)
+  (distinct ?c4 ?s4))
+
+(<= (goal player 25)
+  (true (guess 13))
+  (true (playerset ?c1 ?c2 ?c3 ?c4))
+  (true (set 1 ?s1))
+  (true (set 2 ?s2))
+  (true (set 3 ?s3))
+  (true (set 4 ?c4))
+  (distinct ?c2 ?s2)
+  (distinct ?c3 ?s3)
+  (distinct ?c1 ?s1))
+
+(<= (goal player 0)
+  (true (guess 13))
+  (true (playerset ?c1 ?c2 ?c3 ?c4))
+  (true (set 1 ?s1))
+  (true (set 2 ?s2))
+  (true (set 3 ?s3))
+  (true (set 4 ?s4))
+  (distinct ?c1 ?s1)
+  (distinct ?c2 ?s2)
+  (distinct ?c3 ?s3)
+  (distinct ?c4 ?s4))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

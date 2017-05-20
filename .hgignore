@@ -6,4 +6,4 @@ tree.png
 build
 *.png
 lisp.prof
-data-zdd
+data-*
