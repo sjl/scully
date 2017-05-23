@@ -1,10 +1,17 @@
 (in-package :scully.players.random-zdd)
 
 (defvar *data-file* nil)
-(defparameter *current-game* 'mastermind448)
+(defparameter *current-game* 'stratego)
 
 
 ;;;; Random Incomplete-Information Player -------------------------------------
+(defun move< (a b)
+  (string< (structural-string a)
+           (structural-string b)))
+
+(defun sort-moves (moves)
+  (sort (copy-seq moves) #'move<))
+
 (defclass random-zdd-player (ggp:ggp-player)
   ((role :type symbol :accessor rp-role)
    (reasoner :accessor rp-reasoner)
@@ -46,6 +53,12 @@
 (defun information-set-objects (iset)
   (apply #'+ (mapcar #'length iset)))
 
+(defun debug-log (obj &rest args)
+  (apply #'format t args)
+  (fresh-line)
+  (finish-output)
+  obj)
+
 (defmethod ggp:player-update-game-ii ((player random-zdd-player) move percepts)
   (incf (rp-turn player))
   (format t "~2%=====================================~%")
@@ -57,44 +70,39 @@
         (object-size 0))
     (scully.zdd::with-zdd
       (with-random-zdd-player (player)
+        (format t "Computing next information set...~%")
         (setf iset
               (if move
                 (-<> iset
-                  (progn
-                    (setf state-count (scully.zdd:zdd-count <>)
-                          node-count (scully.zdd:zdd-node-count <>)
-                          object-size (information-set-objects (scully.zdd::zdd-enumerate <>)))
-                    (format t "Information set size: ~D states, ~D ZDD nodes~%"
-                            state-count node-count)
-                    (format t "      Iset cons size: ~D things~%" object-size)
-                    <>)
-                  ;; (progn (dump-iset reasoner <>)
-                  ;;        (finish-output)
-                  ;;        <>)
+                  (debug-log <> "  Sprouting...")
                   (sprout reasoner <> (rp-role player) move)
                   ;; (progn (format t "After sprouting size: ~D states~%"
                   ;;                (scully.zdd:zdd-count <>))
                   ;;        <>)
-                  (apply-happens reasoner <>)
-                  (progn
-                    (setf max-node-count (scully.zdd:zdd-node-count <>))
-                    (format t "            Max size: ~D ZDD nodes~%" max-node-count)
-                    <>)
-                  (filter-iset-for-percepts reasoner <> role percepts)
-                  ;; (progn (format t "After filtering size: ~D states~%"
-                  ;;                (scully.zdd:zdd-count <>))
-                  ;;        <>)
-                  (compute-next-iset reasoner <>)
-                  ;; (progn (dump-iset reasoner <>)
-                  ;;        <>)
-                  (apply-possible reasoner <>))
-                (-<> (initial-iset reasoner)
-                  (progn (setf state-count 1
-                               node-count (scully.zdd:zdd-node-count <>)
-                               max-node-count 0
-                               object-size (information-set-objects (scully.zdd::zdd-enumerate <>)))
+                  (debug-log <> "  Happens...")
+                  ;; (let ((*trace-output* *standard-output*))
+                  ;;   (start-profiling :mode :alloc)
+                  ;;   (prog1 (time (apply-happens reasoner <>))
+                  ;;     (stop-profiling)
+                  ;;     (break)))
+                  (let ((*trace-output* *standard-output*))
+                    (time (apply-happens reasoner <>)))
+                  (progn (setf max-node-count (scully.zdd:zdd-node-count <>))
                          <>)
-                  (apply-possible reasoner <>))))
+                  (debug-log <> "  Filtering percepts...")
+                  (filter-iset-for-percepts reasoner <> role percepts)
+                  (debug-log <> "  Computing next...")
+                  (compute-next-iset reasoner <>)
+                  ;; (progn (dump-iset reasoner <>) <>)
+                  )
+                (initial-iset reasoner)))
+        (debug-log iset "  Counting nodes...")
+        (setf state-count (scully.zdd:zdd-count iset)
+              node-count (scully.zdd:zdd-node-count iset)
+              object-size (information-set-objects (scully.zdd::zdd-enumerate iset)))
+        (format t "Information set size: ~D states, ~D ZDD nodes~%" state-count node-count)
+        (format t "      Iset cons size: ~D conses~%" object-size)
+        (format t "       Max iset size: ~D ZDD nodes~%" max-node-count)
         (format *data-file* "~A,~D,~D,~D,~D,~D,~D~%"
                 *current-game*
                 game
@@ -108,19 +116,26 @@
   (scully.zdd::with-zdd
     (format t "Selecting move...~%")
     (with-random-zdd-player (player)
+      (debug-log iset "  Applying possible...")
+      (setf iset (apply-possible reasoner iset))
+      (debug-log iset "  Calculating moves...")
       ;; (format t "CURRENT ISET:~%")
       ;; (dump-iset reasoner iset)
       ;; (format t "LEGAL MOVES:~%")
       ;; (pr (legal-moves-for reasoner iset role))
-      (pr (random-elt (legal-moves-for reasoner iset role))))))
+      (pr (first (sort-moves (legal-moves-for reasoner iset role)))))))
 
 
 ;;;; Run ----------------------------------------------------------------------
 (setf hunchentoot:*default-connection-timeout* nil) ; its_fine
 
 (defvar *player* (make-instance 'random-zdd-player
-                         :name "Scully-Random-ZDD"
-                         :port 5003))
+                   :name "Scully-Random-ZDD"
+                   :port 5003))
+
+(setf *current-game* 'mastermind448)
+(setf scully.terms::*shuffle-variables* t)
 
 ;; (ggp:start-player *player* :server :hunchentoot :use-thread t)
 ;; (ggp:kill-player *player*)
+;; (sb-ext:gc :full t)

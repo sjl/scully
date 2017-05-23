@@ -105,18 +105,3 @@
 
 
 ;;;; Scratch ------------------------------------------------------------------
-(defparameter *rule* '(
-                       (500 1 2 (ggp-rules::not 3))
-                       (500 4 2 3 15)
-                       (500 (ggp-rules::not 19) 18)
-                       (500 19 17)
-                       ))
-
-; (-<> *rule*
-;   make-rule-tree
-;   (rule-tree-hi <>)
-;   (rule-tree-hi <>)
-;   ; (advance-tree <> 6)
-;   scully.graphviz::draw-rule-tree
-;   ; scully.graphviz::draw-rule-tree
-;   )

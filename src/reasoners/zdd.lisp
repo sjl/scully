@@ -314,10 +314,6 @@
   "Return the initial information set of the game."
   (zr-initial-zdd reasoner))
 
-(defun rand-state (reasoner iset)
-  "Select a random member of the given information set."
-  (mapcar (curry #'number-to-term reasoner)
-          (zdd-random-member iset)))
 
 (defun terminalp (reasoner iset)
   "Return whether the given information set is a terminal state."
@@ -329,7 +325,7 @@
 (defun legal-moves-for (reasoner iset role)
   (-<> iset
     (zdd-meet <> (gethash role (zr-legal-zdds reasoner)))
-    zdd-random-member
+    zdd-arbitrary-member
     (mapcar (curry #'number-to-term reasoner) <>)
     (mapcar #'third <>)))
 
@@ -635,7 +631,7 @@
          (end (get-internal-real-time))
          (elapsed (/ (- end start) internal-time-units-per-second))
          (sizes (reasoner-rule-tree-sizes r)))
-    (format t "~A,~D,~A,~D,~D,~,2F~%"
+    (format t "~A ~D ~A ~D ~D ~,2F~%"
             game-name
             scully.gdl::*max-rule-size*
             scully.terms::*shuffle-variables*
@@ -644,8 +640,13 @@
             elapsed)
     (values)))
 
+(defun test-all ()
+  (iterate (for game :in '(montyhall meier mastermind448 transit vis_pacman3p latenttictactoe stratego))
+           (run-test game 8 nil)
+           (iterate (repeat 10)
+                    (run-test game 8 t))))
 
-;; (run-test 'pennies 8 nil)
+;; (test-all)
 
 ;; (iterate
 ;;   (repeat 10)

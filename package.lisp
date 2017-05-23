@@ -56,6 +56,7 @@
     :zdd-count
     :zdd-node-count
     :zdd-random-member
+    :zdd-arbitrary-member
     :zdd-set
     :zdd-union
     :zdd-intersection

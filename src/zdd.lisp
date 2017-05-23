@@ -20,6 +20,9 @@
 (defparameter *cache*
   (tg:make-weak-hash-table :weakness :value :test #'equalp))
 
+(defparameter *count-cache*
+  (tg:make-weak-hash-table :weakness :key :test #'eq))
+
 (defmacro with-zdd (&body body)
   "Execute `body` with the ZDD settings properly initialized."
   `(with-odd-context (:operation #'zdd-apply :node-cache *cache*)
@@ -50,11 +53,13 @@
 
 (defun zdd-count (zdd)
   "Return the number of members of `zdd`."
-  (ematch zdd
-    ((sink nil) 0)
-    ((sink t) 1)
-    ((node _ hi lo) (+ (zdd-count hi)
-                       (zdd-count lo)))))
+  (ensure-gethash
+    zdd *count-cache*
+    (ematch zdd
+      ((sink nil) 0)
+      ((sink t) 1)
+      ((node _ hi lo) (+ (zdd-count hi)
+                         (zdd-count lo))))))
 
 (defun zdd-node-count (zdd)
   "Return the number of unique nodes in `zdd`."
@@ -88,6 +93,14 @@
               lo-weight)
          (zdd-random-member lo)
          (cons var (zdd-random-member hi)))))))
+
+(defun zdd-arbitrary-member (zdd)
+  "Select an arbitraty member of `zdd`."
+  (ematch zdd
+    ((sink nil) (error "No elements to choose from!"))
+    ((sink t) '())
+    ((node var hi _)
+     (cons var (zdd-arbitrary-member hi)))))
 
 
 (defun unit-patch (zdd)
