@@ -12,6 +12,8 @@
     :load-rules
     :dump-gdl
     :normalize-rules
+    :sort-moves
+    :time-it
     :bare-term
     :negationp
     :term-predicate

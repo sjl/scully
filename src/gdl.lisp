@@ -10,6 +10,27 @@
                   (find-package :ggp-rules))))
 
 
+(defun move< (a b)
+  (string< (structural-string a)
+           (structural-string b)))
+
+(defun sort-moves (moves)
+  (sort (copy-seq moves) #'move<))
+
+
+(defmacro time-it ((run-time-place gc-time-place) &body body)
+  (with-gensyms (start end result gc)
+    `(let* ((sb-ext:*gc-run-time* 0)
+            (,start (get-internal-run-time))
+            (,result (progn ,@body))
+            (,end (get-internal-run-time))
+            (,gc sb-ext:*gc-run-time*))
+       (setf ,gc-time-place (/ ,gc internal-time-units-per-second 1.0)
+             ,run-time-place (/ (- ,end ,start ,gc 0.0)
+                                internal-time-units-per-second))
+       ,result)))
+
+
 ;;;; Files --------------------------------------------------------------------
 (defun read-gdl (filename)
   "Read GDL from the given file"
