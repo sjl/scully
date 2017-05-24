@@ -609,46 +609,49 @@
 (defparameter *i* nil)
 (defparameter *r* nil)
 
-;; (defparameter *rules* (scully.gdl::read-gdl "gdl/meier-grounded.gdl"))
-;; (defparameter *rules* (scully.gdl::read-gdl "gdl/kriegTTT_5x5-grounded.gdl"))
-;; (defparameter *rules* (scully.gdl::read-gdl "gdl/pennies-grounded.gdl"))
-;; (defparameter *rules* (scully.gdl::read-gdl "gdl/mastermind-grounded.gdl"))
-;; (defparameter *rules* (scully.gdl::read-gdl "gdl/mastermind448-grounded.gdl"))
-;; (defparameter *rules* (scully.gdl::read-gdl "gdl/montyhall-grounded.gdl"))
-;; (defparameter *rules* (scully.gdl::read-gdl "gdl/tictactoe-grounded.gdl"))
-;; (defparameter *rules* (scully.gdl::read-gdl "gdl/stratego-grounded.gdl"))
-;; (defparameter *rules* (scully.gdl::read-gdl "gdl/transit-grounded.gdl"))
-;; (defparameter *rules* (scully.gdl::read-gdl "gdl/vis_pacman3p-grounded.gdl"))
+; Data columns: X Min 1stQuartile Median 3rdQuartile Max BoxWidth Titles
 
-;; (defparameter *r* (make-zdd-reasoner *rules*))
-
-(defun run-test (game-name max-rule-size shuffle?)
+(defun run-test (game-name shuffle?)
   (let* ((scully.terms::*shuffle-variables* shuffle?)
-         (scully.gdl::*max-rule-size* max-rule-size)
          (gdl (scully.gdl::read-gdl (format nil "gdl/~(~A~)-grounded.gdl" game-name)))
-         (start (get-internal-real-time))
          (r (make-zdd-reasoner gdl))
-         (end (get-internal-real-time))
-         (elapsed (/ (- end start) internal-time-units-per-second))
          (sizes (reasoner-rule-tree-sizes r)))
-    (format t "~A ~D ~A ~D ~D ~,2F~%"
-            game-name
-            scully.gdl::*max-rule-size*
-            scully.terms::*shuffle-variables*
-            (length sizes)
-            (apply #'+ sizes)
-            elapsed)
-    (values)))
+    sizes))
 
-(defun test-all ()
-  (iterate (for game :in '(montyhall meier mastermind448 transit vis_pacman3p latenttictactoe stratego))
-           (run-test game 8 nil)
-           (iterate (repeat 10)
-                    (run-test game 8 t))))
+(defun percentile (sorted-numbers p)
+  (nth (truncate (* (/ p 100) (length sorted-numbers)))
+       sorted-numbers))
 
-;; (test-all)
+(defun percentiles (numbers)
+  (let ((sorted (sort numbers #'<)))
+    (values (percentile sorted 5)
+            (percentile sorted 25)
+            (percentile sorted 50)
+            (percentile sorted 75)
+            (percentile sorted 95))))
 
-;; (iterate
-;;   (repeat 10)
-;;   (run-test 'transit 12 nil))
+(defun run-shuffle-test (x game-name &optional (iterations 10))
+  (with-open-file (data "data-shuffling-rule-trees"
+                        :direction :output
+                        :if-exists :append
+                        :if-does-not-exist :create)
+    (let* ((unshuffled-size (apply #'+ (run-test game-name nil)))
+           (results (iterate
+                      (for i :from 1 :to iterations)
+                      (princ i) (princ #\space) (finish-output)
+                      (for shuffled-size = (apply #'+ (run-test game-name t)))
+                      (collect (/ shuffled-size unshuffled-size 1.0)))))
+      (fresh-line)
+      (multiple-value-bind (p5 p25 p50 p75 p95)
+          (percentiles results)
+        (format data "~D ~,5F ~,5F ~,5F ~,5F ~,5F 0.4 ~A~%"
+                x p5 p25 p50 p75 p95 game-name)))))
 
+(defun run-shuffle-tests (iterations)
+  (iterate
+    (for game :in '(montyhall meier mastermind448 transit vis_pacman3p latenttictactoe stratego))
+    (pr game)
+    (for x :from 1)
+    (run-shuffle-test x game iterations)))
+
+(run-shuffle-tests 50)
