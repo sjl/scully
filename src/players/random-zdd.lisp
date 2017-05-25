@@ -1,6 +1,5 @@
 (in-package :scully.players.random-zdd)
 
-(defvar *data-file* nil)
 (defparameter *current-game* 'stratego)
 (defvar *prev-time* 0.0)
 (defvar *prev-gc* 0.0)
@@ -23,10 +22,7 @@
 (defmethod ggp:player-start-game ((player random-zdd-player) rules role timeout)
   (incf (rp-game player))
   (sb-ext:gc :full t)
-  (setf *data-file* (open "data-zdd" :direction :output
-                          :if-exists :append
-                          :if-does-not-exist :create)
-        *prev-time* 0.0
+  (setf *prev-time* 0.0
         *prev-gc* 0.0)
   (scully.zdd::with-zdd
     (let* ((grounded-rules (-<> rules
@@ -43,13 +39,12 @@
 
 (defmethod ggp:player-stop-game ((player random-zdd-player))
   (format t "Done~%")
-  (finish-output *data-file*)
-  (close *data-file*)
   (scully.zdd::with-zdd
     (with-random-zdd-player (player)
       (setf role nil
             reasoner nil
             iset nil))))
+
 
 (defun information-set-objects (iset)
   (apply #'+ (mapcar #'length iset)))
@@ -59,6 +54,17 @@
   (fresh-line)
   (finish-output)
   obj)
+
+(defun log-iset-data (data-file game state-count node-count object-size)
+  (with-open-file (data data-file :direction :output
+                        :if-exists :append
+                        :if-does-not-exist :create)
+    (format data "~A ~D ~D ~D~%"
+            game
+            state-count
+            node-count
+            object-size)
+    (finish-output data)))
 
 (defmethod ggp:player-update-game-ii ((player random-zdd-player) move percepts)
   (incf (rp-turn player))
@@ -112,17 +118,19 @@
         (format t "Information set size: ~D states, ~D ZDD nodes~%" state-count node-count)
         (format t "      Iset cons size: ~D conses~%" object-size)
         (format t "       Max iset size: ~D ZDD nodes~%" max-node-count)
-        (format *data-file* "~A,~D,~D,~D,~D,~D,~D,~,4F,~,4F~%"
-                *current-game*
-                game
-                turn
-                state-count
-                node-count
-                max-node-count
-                object-size
-                elapsed
-                gc)
-        (finish-output *data-file*)))))
+        (log-iset-data "data-iset-sizes"
+                       *current-game* state-count node-count object-size)
+        ;; (format *data-file* "~A,~D,~D,~D,~D,~D,~D,~,4F,~,4F~%"
+        ;;         *current-game*
+        ;;         game
+        ;;         turn
+        ;;         state-count
+        ;;         node-count
+        ;;         max-node-count
+        ;;         object-size
+        ;;         elapsed
+        ;;         gc)
+        ))))
 
 (defmethod ggp:player-select-move ((player random-zdd-player) timeout)
   (scully.zdd::with-zdd
@@ -137,7 +145,7 @@
       ;; (dump-iset reasoner iset)
       ;; (format t "LEGAL MOVES:~%")
       ;; (pr (legal-moves-for reasoner iset role))
-      (pr (first (scully.gdl::sort-moves (legal-moves-for reasoner iset role)))))))
+      (pr (random-elt (scully.gdl::sort-moves (legal-moves-for reasoner iset role)))))))
 
 
 ;;;; Run ----------------------------------------------------------------------
@@ -147,8 +155,8 @@
                    :name "Scully-Random-ZDD"
                    :port 5003))
 
-;; (setf *current-game* 'mastermind448)
-;; (setf scully.terms::*shuffle-variables* t)
+;; (setf *current-game* 'latenttictactoe)
+;; (setf scully.terms::*shuffle-variables* nil)
 
 ;; (ggp:start-player *player* :server :hunchentoot :use-thread t)
 ;; (ggp:kill-player *player*)

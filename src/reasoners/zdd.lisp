@@ -611,12 +611,21 @@
 
 ; Data columns: X Min 1stQuartile Median 3rdQuartile Max BoxWidth Titles
 
+(defun ground-gdl-size (gdl)
+  (iterate (for rule :in gdl)
+           (summing (if (and (consp rule)
+                             (equal (first rule) 'ggp-rules::<=))
+                      (1- (length rule))
+                      1))))
+
 (defun run-test (game-name shuffle?)
   (let* ((scully.terms::*shuffle-variables* shuffle?)
          (gdl (scully.gdl::read-gdl (format nil "gdl/~(~A~)-grounded.gdl" game-name)))
+         (gdl-size (ground-gdl-size gdl))
          (r (make-zdd-reasoner gdl))
          (sizes (reasoner-rule-tree-sizes r)))
-    sizes))
+    (values sizes gdl-size)))
+
 
 (defun percentile (sorted-numbers p)
   (nth (truncate (* (/ p 100) (length sorted-numbers)))
@@ -629,6 +638,7 @@
             (percentile sorted 50)
             (percentile sorted 75)
             (percentile sorted 95))))
+
 
 (defun run-shuffle-test (x game-name &optional (iterations 10))
   (with-open-file (data "data-shuffling-rule-trees"
@@ -654,4 +664,25 @@
     (for x :from 1)
     (run-shuffle-test x game iterations)))
 
-(run-shuffle-tests 50)
+
+(defun run-basic-test (game-name)
+  (with-open-file (data "data-rule-tree-sizes"
+                        :direction :output
+                        :if-exists :append
+                        :if-does-not-exist :create)
+    (multiple-value-bind (sizes gdl-size)
+        (run-test game-name nil)
+      (format data "~A ~D ~D ~D~%"
+              game-name
+              gdl-size
+              (length sizes)
+              (apply #'+ sizes)))))
+
+(defun run-basic-tests ()
+  (iterate
+    (for game :in '(montyhall meier mastermind448 transit vis_pacman3p latenttictactoe stratego))
+    (pr game)
+    (run-basic-test game)))
+
+;; (run-shuffle-tests 50)
+;; (run-basic-tests)
