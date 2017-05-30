@@ -118,19 +118,24 @@
 
 
 (defun-ematch* zdd-union% (a b)
-  (((node) (sink)) (zdd-union% b a))
-
+  ((a (sink nil)) a)
   (((sink nil) b) b)
+
+  ((a (sink t)) (unit-patch a))
   (((sink t) b) (unit-patch b))
 
   (((node var-a hi-a lo-a)
     (node var-b hi-b lo-b))
    (cond
-     ((< var-a var-b) (zdd-node var-a hi-a (zdd-union% lo-a b)))
-     ((> var-a var-b) (zdd-node var-b hi-b (zdd-union% lo-b a)))
-     ((= var-a var-b) (zdd-node var-a
-                                (zdd-union% hi-a hi-b)
-                                (zdd-union% lo-a lo-b))))))
+     ((< var-a var-b)
+      (zdd-node var-a hi-a (zdd-union% lo-a b)))
+     ((> var-a var-b)
+      (zdd-node var-b hi-b (zdd-union% lo-b a)))
+     ((= var-a var-b)
+      (zdd-node var-a
+                (zdd-union% hi-a hi-b)
+                (zdd-union% lo-a lo-b))))))
+
 (defun zdd-union (&rest zdds)
   "Return the union of ZDDs: {α | α ∈ Z₁ or α ∈ Z₂}."
   (if zdds
